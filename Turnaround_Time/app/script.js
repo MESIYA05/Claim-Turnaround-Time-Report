@@ -1211,12 +1211,15 @@ function getGroupedClaimLines(c) {
 }
 
 function getClaimDate(c) {
+  // Filter claims based on Claim Date
+  if (c.Claim_Date) {
+    return parseZohoDate(c.Claim_Date);
+  }
   const lines = getClaimLines(c);
   if (lines.length && lines[0].Date_of_Service) {
     return parseZohoDate(lines[0].Date_of_Service);
   }
-  // fallback if no line items have a date
-  return parseZohoDate(c.Date_of_Service || c.Lodged_Date || c.Claim_Date);
+  return parseZohoDate(c.Date_of_Service || c.Lodged_Date);
 }
 function getLineItemNumber(l) {
   if (l.Item && typeof l.Item === "object") {
@@ -1550,21 +1553,6 @@ FILTERED_DATA.forEach(c => {
 });
   const DATA_END_ROW = aoa.length - 1;
 
-  /* ---------------- GRAND SUMMARY SECTION ---------------- */
-
-  const s = computeSummary(FILTERED_DATA);
-  const summaryStartRow = aoa.length + 1;
-
-  aoa.push([]);
-  aoa.push(["GRAND SUMMARY"]);
-  aoa.push(["Total Claims", s.totalClaims]);
-  aoa.push(["Total Line Items", s.totalLineItems]);
-
-  const typeEntries = Object.entries(s.typeTotals).sort((a, b) => b[1] - a[1]);
-  typeEntries.forEach(([type, count]) => {
-    aoa.push([`Total ${type}`, count]);
-  });
-
   /* ---------------- BUILD WORKSHEET ---------------- */
 
   const worksheet = XLSX.utils.aoa_to_sheet(aoa);
@@ -1619,16 +1607,6 @@ FILTERED_DATA.forEach(c => {
       }
       setStyle(r, c, style);
     }
-  }
-
-  /* ---------------- GRAND SUMMARY STYLING ---------------- */
-
-  setStyle(summaryStartRow, 0, { font: { bold: true, sz: 12, color: { rgb: XLSX_BRAND.navy } } });
-
-  const summaryEndRow = summaryStartRow + 2 + typeEntries.length;
-  for (let r = summaryStartRow + 1; r <= summaryEndRow; r++) {
-    setStyle(r, 0, { font: { bold: true, sz: 10, color: { rgb: XLSX_BRAND.navyText } } });
-    setStyle(r, 1, countCellStyle);
   }
 
   /* ---------------- SAVE ---------------- */
@@ -2066,11 +2044,8 @@ async function exportPDF() {
   });
 
 
-  /* ---------------- GRAND SUMMARY ---------------- */
-  drawGrandSummary(doc, pageW, pageH, margin, headerInfo, HEADER_HEIGHT, FOOTER_RESERVED);
-
   /* ---------------- SAVE ---------------- */
-doc.save("Claims Turnaround Time Report.pdf");
+  doc.save("Claims Turnaround Time Report.pdf");
 }
 
 function drawGrandSummary(doc, pageW, pageH, margin, headerInfo, HEADER_HEIGHT, FOOTER_RESERVED) {
