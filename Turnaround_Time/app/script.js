@@ -944,91 +944,98 @@ function getPatientDisplayWithDOB(c) {
    TABLE RENDER — claim row + grouped subform line items
    =================================================== */
 
+
+/* ---- Process Payment Days helper ---- */
+function calcProcessPaymentDays(l) {
+  const dos = parseZohoDate(l.Date_of_Service);
+  const pay = parseZohoDate(l.Payment_Date);
+  if (!dos || !pay || isNaN(dos.getTime()) || isNaN(pay.getTime())) return "-";
+  const diff = Math.round((pay - dos) / (1000 * 60 * 60 * 24));
+  return diff >= 0 ? diff : "-";
+}
+
+/* ---- Format Claim Date for display ---- */
+function formatClaimDate(c) {
+  const raw = c.Claim_Date;
+  if (!raw) return "-";
+  const d = parseZohoDate(raw);
+  if (!d || isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 function renderTable(data) {
   const tbody = document.getElementById("report-body");
   tbody.classList.remove("fade-in");
   void tbody.offsetWidth;
 
 if (!data.length) {
-  tbody.innerHTML = `<tr><td colspan="11">No data</td></tr>`; // ⬅️ 8 → 11
+  tbody.innerHTML = `<tr><td colspan="9">No data</td></tr>`;
   renderSummary([]);
   return;
 }
   let html = "";
 
-//   const usageCounts = computeItemUsageCounts(data);
-
 data.forEach((c, groupIdx) => {
-  const doctor      = c.Doctor?.zc_display_value   || c.Doctor_Name   || "-";
-  const hospital    = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
+  const claimId   = c.Claim_ID || c.ID || "-";
+  const claimDate = formatClaimDate(c);
+  const doctor    = c.Doctor?.zc_display_value   || c.Doctor_Name   || "-";
+  const hospital  = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
   const patientInfo = getClaimPatientInfo(c);
-  const patient     = patientInfo ? patientInfo.label : "-";
-  const status      = getClaimStatus(c);
+  const patient   = patientInfo ? patientInfo.label : "-";
 
-  const lines = getGroupedByItemLines(c); // ⬅️ CHANGED — was getEffectiveClaimLines(c); groups same-item rows together for rowspan
-
-  const claimCounts  = getClaimItemCounts(c);
-  const claimAmounts = getClaimItemAmounts(c);
+  const lines = getGroupedByItemLines(c);
 
   const rowCount = Math.max(lines.length, 1);
   const groupClass = groupIdx % 2 === 0 ? "grp-a" : "grp-b";
 
   const claimCellsHtml = `
+    <td rowspan="${rowCount}" class="claim-cell">${claimId}</td>
     <td rowspan="${rowCount}" class="claim-cell">${doctor}</td>
     <td rowspan="${rowCount}" class="claim-cell">${hospital}</td>
     <td rowspan="${rowCount}" class="claim-cell">${patient}</td>
-    <td rowspan="${rowCount}" class="claim-cell">
-      <span class="status-badge status-${getStatusClass(status)}">${status}</span>
-    </td>
+    <td rowspan="${rowCount}" class="claim-cell">${claimDate}</td>
   `;
 
   if (!lines.length) {
     html += `
       <tr class="${groupClass} group-first">
         ${claimCellsHtml}
-        <td class="no-lines" colspan="7">No line items</td>
+        <td class="no-lines" colspan="4">No line items</td>
       </tr>
     `;
     return;
   }
 
-  // ⬇️ ADDED — precompute, for each row index, whether it starts a new
-  // item-number group and how many consecutive rows that group spans
+  // Precompute item-number group spans for rowspan on Item No
   let i = 0;
   const itemSpans = new Array(lines.length).fill(null);
   while (i < lines.length) {
     const currentItem = getLineItemNumber(lines[i]);
     let span = 1;
     while (i + span < lines.length && getLineItemNumber(lines[i + span]) === currentItem) span++;
-    itemSpans[i] = span; // first row of the group carries the span count
+    itemSpans[i] = span;
     i += span;
   }
 
   lines.forEach((l, idx) => {
-    const itemNo   = getLineItemNumber(l);
-    const itemType = getLineItemType(l);
-    const itemDesc = getLineItemDescription(l);
-    const billed   = claimAmounts[itemNo] || 0;
-    const dos      = getLineDateOfService(l);
-    const payDate  = getLinePaymentDate(l);
-    const span     = itemSpans[idx]; // ⬅️ ADDED — non-null only on the first row of each item group
+    const itemNo  = getLineItemNumber(l);
+    const dos     = getLineDateOfService(l);
+    const payDate = getLinePaymentDate(l);
+    const ppDays  = calcProcessPaymentDays(l);
+    const span    = itemSpans[idx];
 
-    const itemCellsHtml = span
-      ? `
-        <td rowspan="${span}" class="item-no">${itemNo}</td>
-        <td rowspan="${span}" class="item-type">${itemType}</td>
-        <td rowspan="${span}" class="item-desc"><span class="desc-text">${itemDesc}</span></td>
-        <td rowspan="${span}" class="usage-count">${formatUsage(itemNo, claimCounts)}</td>
-        <td rowspan="${span}" class="billed-amount">${fmtMoney(billed)}</td>
-      `
-      : ""; // ⬅️ CHANGED — subsequent rows of the same item group emit no cells here at all (covered by the rowspan above)
+    // Item No uses rowspan over consecutive same-item rows
+    const itemNoCell = span
+      ? `<td rowspan="${span}" class="item-no">${itemNo}</td>`
+      : "";
 
     html += `
       <tr class="${groupClass} ${idx === 0 ? "group-first" : ""}">
         ${idx === 0 ? claimCellsHtml : ""}
+        ${itemNoCell}
         <td class="item-dos">${dos}</td>
         <td class="item-paydate">${payDate}</td>
-        ${itemCellsHtml}
+        <td class="item-ppdays">${ppDays}</td>
       </tr>
     `;
   });
@@ -1330,27 +1337,27 @@ function getExportRows() {
   const rows = [];
 
   FILTERED_DATA.forEach(c => {
-    const doctor   = c.Doctor?.zc_display_value   || c.Doctor_Name   || "-";
-    const hospital = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
-    const patient  = getPatientDisplayWithDOB(c);
-    const status   = getClaimStatus(c);
-    const baseRow  = { "Doctor": doctor, "Hospital": hospital, "Patient": patient, "Status": status };
+    const claimId   = c.Claim_ID || c.ID || "-";
+    const claimDate = formatClaimDate(c);
+    const doctor    = c.Doctor?.zc_display_value   || c.Doctor_Name   || "-";
+    const hospital  = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
+    const patient   = getPatientDisplayWithDOB(c);
+    const baseRow   = {
+      "Claim ID": claimId, "Doctor": doctor, "Hospital": hospital,
+      "Patient": patient, "Claim Date": claimDate
+    };
 
-    const lines        = getGroupedByItemLines(c); // ⬅️ CHANGED
-    const claimCounts  = getClaimItemCounts(c);
-    const claimAmounts = getClaimItemAmounts(c);
+    const lines = getGroupedByItemLines(c);
 
     if (!lines.length) {
       rows.push({
         ...baseRow,
-        "Date of Service": "-", "Payment Date": "-",
-        "Item Number": "-", "Type": "-", "Description": "-",
-        "Usage Count": "-", "Billed Amount": "-"
+        "Item No": "-", "Date of Service": "-",
+        "Payment Date": "-", "Process Payment Days": "-"
       });
       return;
     }
 
-    // ⬇️ ADDED — same span logic reused for Excel's blank-on-continuation pattern
     let i = 0;
     const itemSpans = new Array(lines.length).fill(null);
     while (i < lines.length) {
@@ -1367,13 +1374,10 @@ function getExportRows() {
 
       rows.push({
         ...baseRow,
-        "Date of Service": getLineDateOfService(l),
-        "Payment Date": getLinePaymentDate(l),
-        "Item Number": isFirstOfGroup ? itemNo : "",
-        "Type": isFirstOfGroup ? getLineItemType(l) : "",
-        "Description": isFirstOfGroup ? getLineItemDescription(l) : "",
-        "Usage Count": isFirstOfGroup ? (claimCounts[itemNo] || 0) : "",
-        "Billed Amount": isFirstOfGroup ? fmtMoney(claimAmounts[itemNo] || 0) : ""
+        "Item No":              isFirstOfGroup ? itemNo : "",
+        "Date of Service":      getLineDateOfService(l),
+        "Payment Date":         getLinePaymentDate(l),
+        "Process Payment Days": calcProcessPaymentDays(l)
       });
     });
   });
@@ -1432,32 +1436,29 @@ function exportExcel() {
 
   const HEADER_ROW = aoa.length;
   aoa.push([
-    "Doctor", "Hospital", "Patient", "Status",
-    "Date of Service", "Payment Date",
-    "Item Number", "Type", "Description", "Usage Count", "Billed Amount"
-  ]); // ⬅️ CHANGED — added Status, Date of Service, Payment Date
+    "Claim ID", "Doctor", "Hospital", "Patient", "Claim Date",
+    "Item No", "Date of Service", "Payment Date", "Process Payment Days"
+  ]);
+
 
   const DATA_START_ROW = aoa.length;
   const groupBoundaryRows = [];
 
-// Inside exportExcel(), replace the claim-loop body with:
 FILTERED_DATA.forEach(c => {
+  const claimId  = c.Claim_ID || c.ID || "-";
+  const claimDate = formatClaimDate(c);
   const doctor   = c.Doctor?.zc_display_value   || c.Doctor_Name   || "-";
   const hospital = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
   const patient  = (getClaimPatientInfo(c) || {}).label || "-";
-  const status   = getClaimStatus(c);
 
-  const lines        = getGroupedByItemLines(c); // ⬅️ CHANGED
-  const claimCounts  = getClaimItemCounts(c);
-  const claimAmounts = getClaimItemAmounts(c);
+  const lines = getGroupedByItemLines(c);
   groupBoundaryRows.push(aoa.length);
 
   if (!lines.length) {
-    aoa.push([doctor, hospital, patient, status, "-", "-", "-", "-", "-", "-", "-"]);
+    aoa.push([claimId, doctor, hospital, patient, claimDate, "-", "-", "-", "-"]);
     return;
   }
 
-  // ⬇️ ADDED — same span logic
   let i = 0;
   const itemSpans = new Array(lines.length).fill(null);
   while (i < lines.length) {
@@ -1473,17 +1474,15 @@ FILTERED_DATA.forEach(c => {
     const isFirstOfGroup = itemSpans[idx] !== null;
 
     aoa.push([
-      idx === 0 ? doctor : "",
-      idx === 0 ? hospital : "",
-      idx === 0 ? patient : "",
-      idx === 0 ? status : "",
+      idx === 0 ? claimId   : "",
+      idx === 0 ? doctor    : "",
+      idx === 0 ? hospital  : "",
+      idx === 0 ? patient   : "",
+      idx === 0 ? claimDate : "",
+      isFirstOfGroup ? itemNo : "",
       getLineDateOfService(l),
       getLinePaymentDate(l),
-      isFirstOfGroup ? itemNo : "",
-      isFirstOfGroup ? getLineItemType(l) : "",
-      isFirstOfGroup ? getLineItemDescription(l) : "",
-      isFirstOfGroup ? formatUsage(itemNo, claimCounts) : "",
-      isFirstOfGroup ? fmtMoney(claimAmounts[itemNo] || 0) : ""
+      calcProcessPaymentDays(l)
     ]);
   });
 });
@@ -1498,7 +1497,6 @@ FILTERED_DATA.forEach(c => {
   aoa.push(["GRAND SUMMARY"]);
   aoa.push(["Total Claims", s.totalClaims]);
   aoa.push(["Total Line Items", s.totalLineItems]);
-  aoa.push(["Total Billed Amount", s.totalBilledAmount]);
 
   const typeEntries = Object.entries(s.typeTotals).sort((a, b) => b[1] - a[1]);
   typeEntries.forEach(([type, count]) => {
@@ -1508,12 +1506,11 @@ FILTERED_DATA.forEach(c => {
   /* ---------------- BUILD WORKSHEET ---------------- */
 
   const worksheet = XLSX.utils.aoa_to_sheet(aoa);
-  worksheet["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }]; // ⬅️ CHANGED c:7 → c:10 (11 columns)
+  worksheet["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }]; // 9 columns (0-8)
   worksheet["!cols"] = [
-    { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, // Doctor, Hospital, Patient, Status
-    { wch: 14 }, { wch: 14 },                            // Date of Service, Payment Date
-    { wch: 14 }, { wch: 16 }, { wch: 40 }, { wch: 12 }, { wch: 14 } // Item#, Type, Desc, Usage, Billed
-  ]; // ⬅️ CHANGED — added 4 columns total width entries
+    { wch: 14 }, { wch: 18 }, { wch: 20 }, { wch: 20 }, { wch: 14 }, // Claim ID, Doctor, Hospital, Patient, Claim Date
+    { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 20 }                // Item No, DoS, Pay Date, Process Payment Days
+  ];
 
   function setStyle(row, col, style) {
     const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
@@ -1547,14 +1544,14 @@ FILTERED_DATA.forEach(c => {
   setStyle(0, 0, { font: { bold: true, sz: 14, color: { rgb: XLSX_BRAND.navy } }, alignment: { horizontal: "center" } });
   for (let r = 1; r <= 4; r++) setStyle(r, 0, { font: { sz: 9, italic: true, color: { rgb: XLSX_BRAND.navyText } } });
 
-  for (let c = 0; c <= 10; c++) setStyle(HEADER_ROW, c, headerStyle); // ⬅️ CHANGED c<=7 → c<=10
+  for (let c = 0; c <= 8; c++) setStyle(HEADER_ROW, c, headerStyle); // 9 columns (0-8)
 
   for (let r = DATA_START_ROW; r <= DATA_END_ROW; r++) {
     const isAlt = (r - DATA_START_ROW) % 2 === 1;
     const isGroupStart = groupBoundaryRows.includes(r);
-    for (let c = 0; c <= 10; c++) { // ⬅️ CHANGED c<=7 → c<=10
+    for (let c = 0; c <= 8; c++) { // 9 columns (0-8)
       let style = isAlt ? { ...dataCellStyle, fill: altRowFill } : dataCellStyle;
-      if (c === 9 || c === 10) style = { ...style, alignment: { horizontal: "right" } }; // ⬅️ CHANGED — Usage Count & Billed Amount now at 9,10
+      if (c === 8) style = { ...style, alignment: { horizontal: "center" } }; // Process Payment Days centered
       if (isGroupStart) {
         style = { ...style, border: { ...style.border, top: { style: "medium", color: { rgb: XLSX_BRAND.navy } } } };
       }
@@ -1566,14 +1563,11 @@ FILTERED_DATA.forEach(c => {
 
   setStyle(summaryStartRow, 0, { font: { bold: true, sz: 12, color: { rgb: XLSX_BRAND.navy } } });
 
-  const summaryEndRow = summaryStartRow + 3 + typeEntries.length;
+  const summaryEndRow = summaryStartRow + 2 + typeEntries.length;
   for (let r = summaryStartRow + 1; r <= summaryEndRow; r++) {
     setStyle(r, 0, { font: { bold: true, sz: 10, color: { rgb: XLSX_BRAND.navyText } } });
     setStyle(r, 1, countCellStyle);
   }
-
-  const billedAmountRow = summaryStartRow + 3;
-  setStyle(billedAmountRow, 1, { ...countCellStyle, numFmt: "$#,##0.00" });
 
   /* ---------------- SAVE ---------------- */
 
@@ -1659,22 +1653,21 @@ function buildPdfBody() {
   PDF_GROUP_STARTS = [];
 
   FILTERED_DATA.forEach(c => {
-    const doctor   = c.Doctor?.zc_display_value   || c.Doctor_Name   || "-";
-    const hospital = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
-    const patient  = (getClaimPatientInfo(c) || {}).label || "-";
-    const status   = getClaimStatus(c);
+    const claimId   = c.Claim_ID || c.ID || "-";
+    const claimDate = formatClaimDate(c);
+    const doctor    = c.Doctor?.zc_display_value   || c.Doctor_Name   || "-";
+    const hospital  = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
+    const patient   = (getClaimPatientInfo(c) || {}).label || "-";
 
-    const lines        = getGroupedByItemLines(c); // ⬅️ CHANGED — was getEffectiveClaimLines(c)
-    const claimCounts  = getClaimItemCounts(c);
-    const claimAmounts = getClaimItemAmounts(c);
+    const lines = getGroupedByItemLines(c);
     PDF_GROUP_STARTS.push(body.length);
 
     if (!lines.length) {
-      body.push([doctor, hospital, patient, status, "-", "-", "-", "-", "-", "-", "-"]);
+      body.push([claimId, doctor, hospital, patient, claimDate, "-", "-", "-", "-"]);
       return;
     }
 
-    // ⬇️ ADDED — same span precomputation as renderTable()
+    // Precompute item-number group spans (same logic as renderTable)
     let i = 0;
     const itemSpans = new Array(lines.length).fill(null);
     while (i < lines.length) {
@@ -1690,25 +1683,22 @@ function buildPdfBody() {
       const span = itemSpans[idx];
 
       const row = [
-        idx === 0 ? doctor : "",
-        idx === 0 ? hospital : "",
-        idx === 0 ? patient : "",
-        idx === 0 ? status : "",
-        getLineDateOfService(l),
-        getLinePaymentDate(l)
+        idx === 0 ? claimId   : "",
+        idx === 0 ? doctor    : "",
+        idx === 0 ? hospital  : "",
+        idx === 0 ? patient   : "",
+        idx === 0 ? claimDate : ""
       ];
 
       if (span) {
         // First row of an item group — carry rowSpan via cell objects
         row.push({ content: itemNo, rowSpan: span });
-        row.push({ content: getLineItemType(l), rowSpan: span });
-        row.push({ content: getLineItemDescription(l), rowSpan: span });
-        row.push({ content: formatUsage(itemNo, claimCounts), rowSpan: span });
-        row.push({ content: fmtMoney(claimAmounts[itemNo] || 0), rowSpan: span });
       }
-      // ⬅️ When span is null (a continuation row), we push NOTHING for
-      // those 5 columns — jsPDF-AutoTable requires spanned rows to omit
-      // the cell entirely, not leave a blank string.
+      // When span is null, push nothing — jsPDF-AutoTable requires spanned rows to omit the cell
+
+      row.push(getLineDateOfService(l));
+      row.push(getLinePaymentDate(l));
+      row.push(String(calcProcessPaymentDays(l)));
 
       body.push(row);
     });
@@ -1723,22 +1713,19 @@ function resetMultiSelect(id, allLabel) {
   const wrapper = document.getElementById(id);
   if (!wrapper) return;
   wrapper.querySelectorAll('.ms-option input[type="checkbox"]').forEach(cb => cb.checked = false);
-  if (id === "f-itemnumber") CHECKED_ITEM_NUMBERS.clear();
   updateMultiSelectLabel(wrapper, allLabel || wrapper.dataset.allLabel || "All");
-  reorderMultiSelectChecked(wrapper); // ⬅️ ADDED
+  reorderMultiSelectChecked(wrapper);
 }
 
 function resetFilters() {
-  ["f-doctor", "f-location"].forEach(id => {   // ← "f-patient" removed from this loop
+  ["f-doctor", "f-location"].forEach(id => {
     const wrapper = document.getElementById(id);
     if (!wrapper) return;
     wrapper.dataset.value = "";
     wrapper.querySelector(".ss-value").textContent = wrapper.dataset.allLabel || "All";
   });
 
-  resetMultiSelect("f-patient", "All Patients");   // ← new
-  resetMultiSelect("f-itemnumber", "All Items");
-  SELECTED_ITEM_NUMBERS = [];
+  resetMultiSelect("f-patient", "All Patients");
 
   document.getElementById("f-from").value = "";
   document.getElementById("f-to").value = "";
@@ -1957,10 +1944,9 @@ async function exportPDF() {
     margin: { top: HEADER_HEIGHT, left: margin, right: margin, bottom: FOOTER_RESERVED },
     theme: "grid",
     head: [[
-      "Doctor", "Hospital", "Patient", "Status",
-      "Date of Service", "Payment Date",
-      "Item Number", "Type", "Description", "Usage Count", "Billed Amount"
-    ]], // ⬅️ CHANGED — added 3 new headers
+      "Claim ID", "Doctor", "Hospital", "Patient", "Claim Date",
+      "Item No", "Date of Service", "Payment Date", "Process Payment Days"
+    ]],
     body: buildPdfBody(),
 
     didParseCell: function (data) {
@@ -1974,45 +1960,9 @@ async function exportPDF() {
 
       data.cell.text = lines;
 
-      // Description column is now index 8 (was 5)
-      if (data.column.index === 8) { // ⬅️ CHANGED index 5 → 8
-        const fullText = lines.join(" ");
-        const colWidth = 190; // ⬅️ CHANGED — must match columnStyles[8].cellWidth below
-        const padding = (data.cell.styles.cellPadding || 4) * 2;
-        const usableWidth = colWidth - padding;
-
-        const fontSize = data.cell.styles.fontSize || 7;
-        doc.setFontSize(fontSize);
-
-        let wrapped = doc.splitTextToSize(fullText, usableWidth);
-
-        if (wrapped.length > 4) {
-          wrapped = wrapped.slice(0, 4);
-          let lastLine = wrapped[3];
-          while (
-            doc.getTextWidth(lastLine + "...") > usableWidth &&
-            lastLine.length > 0
-          ) {
-            lastLine = lastLine.slice(0, -1);
-          }
-          wrapped[3] = lastLine.replace(/\s+$/, "") + "...";
-        }
-
-        data.cell.text = wrapped;
-      }
-
       if (PDF_GROUP_STARTS.includes(data.row.index)) {
         data.cell.styles.lineWidth = { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 };
       }
-
-      // ⬇️ REMOVED — the green background/white text override for the
-      // Item Number column has been deleted entirely, per request:
-      //
-      // if (data.column.index === 3) {
-      //   data.cell.styles.fillColor = BRAND.green;
-      //   data.cell.styles.textColor = BRAND.white;
-      //   data.cell.styles.fontStyle = "bold";
-      // }
     },
     styles: {
       fontSize: 7,
@@ -2033,26 +1983,23 @@ async function exportPDF() {
     },
     tableWidth: "auto",
 columnStyles: {
-  // ⬇️ CHANGED — widened every column so the table fills the full
-  // landscape usable width (841.89pt page − 40pt margin × 2 ≈ 761.89pt),
-  // instead of leaving ~60pt of empty space on the right
-  0: { cellWidth: 70 },              // Doctor      (was 62)
-  1: { cellWidth: 70 },              // Hospital    (was 62)
-  2: { cellWidth: 65 },              // Patient     (was 58)
-  3: { cellWidth: 55 },              // Status      (was 50)
-  4: { cellWidth: 58, halign: "center" }, // Date of Service (was 52)
-  5: { cellWidth: 58, halign: "center" }, // Payment Date    (was 52)
-  6: { cellWidth: 48, halign: "right" },  // Item Number     (was 44)
-  7: { cellWidth: 35 },              // Type        (was 32)
-  8: { cellWidth: 190, overflow: "hidden" }, // Description (unchanged)
-  9: { cellWidth: 50, halign: "right" },  // Usage Count     (was 45)
-  10: { cellWidth: 62, halign: "right" }  // Billed Amount   (was 55)
+  // 9 columns, total usable width ~761.89pt (landscape A4 minus 2×40pt margin)
+  0: { cellWidth: 65 },                      // Claim ID
+  1: { cellWidth: 82 },                      // Doctor
+  2: { cellWidth: 90 },                      // Hospital
+  3: { cellWidth: 100 },                     // Patient
+  4: { cellWidth: 65, halign: "center" },    // Claim Date
+  5: { cellWidth: 55, halign: "center" },    // Item No
+  6: { cellWidth: 80, halign: "center" },    // Date of Service
+  7: { cellWidth: 80, halign: "center" },    // Payment Date
+  8: { cellWidth: 75, halign: "center" }     // Process Payment Days
 },
     didDrawPage: () => {
       drawHeader(doc, pageW, margin, headerInfo);
       drawFooter(doc, pageW, margin);
     }
   });
+
 
   /* ---------------- GRAND SUMMARY ---------------- */
   drawGrandSummary(doc, pageW, pageH, margin, headerInfo, HEADER_HEIGHT, FOOTER_RESERVED);
