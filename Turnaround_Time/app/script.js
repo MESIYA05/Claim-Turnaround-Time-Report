@@ -17,9 +17,9 @@ const MEDI_ELVES_LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA4
 
 let LOGO_DATA_URL = null;
 
-// ⚠️ Set this to the EXACT API name of the item-number field
-// in Add_Item_Report (check Zoho Creator → field properties → API Name).
-// If you're not 100% sure, leave the fallback list below as-is —
+// âš ï¸ Set this to the EXACT API name of the item-number field
+// in Add_Item_Report (check Zoho Creator â†’ field properties â†’ API Name).
+// If you're not 100% sure, leave the fallback list below as-is â€”
 // the code will auto-detect which one actually works on first search.
 const ITEM_NUMBER_FIELD = "Item";
 
@@ -86,7 +86,7 @@ function getGroupedByItemLines(c) {
 
 
 function getClaimStatus(c) {
-  return toLabel(c.Claim_Status) || "-"; // ⬅️ CHANGED — correct field link name
+  return toLabel(c.Claim_Status) || "-"; // â¬…ï¸ CHANGED â€” correct field link name
 }
 
 // Maps a status value to a CSS class suffix, e.g. "Approved" -> "approved"
@@ -132,7 +132,7 @@ async function zohoGetRecords(config, retries = 4) {
 }
 
 function loadLogoAsDataURL() {
-  // No fetch/CORS involved — just resolve the embedded base64 directly.
+  // No fetch/CORS involved â€” just resolve the embedded base64 directly.
   LOGO_DATA_URL = MEDI_ELVES_LOGO_BASE64;
   return Promise.resolve(LOGO_DATA_URL);
 }
@@ -141,7 +141,7 @@ function loadLogoAsDataURL() {
 // "MARIA ANITA FERRER - 29 Sept 1962"  ->  "MARIA ANITA FERRER"
 function stripDob(text) {
   const D = "(?:\\d{1,2}\\s+[A-Za-z]+\\.?,?\\s+\\d{4}|\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{2,4}|\\d{4}-\\d{2}-\\d{2})";
-  const re = new RegExp("\\s*(?:[-–,]\\s+|\\(\\s*)(?:DOB:?\\s*)?" + D + "\\s*\\)?\\s*$", "i");
+  const re = new RegExp("\\s*(?:[-â€“,]\\s+|\\(\\s*)(?:DOB:?\\s*)?" + D + "\\s*\\)?\\s*$", "i");
   return String(text || "").replace(re, "").trim();
 }
 
@@ -159,11 +159,11 @@ function toLabel(v) {
 
 // "1234 - Some description" -> "1234"
 function normItemKey(v) {
-  return String(v || "").split(/\s[-–]\s/)[0].trim().toLowerCase();
+  return String(v || "").split(/\s[-â€“]\s/)[0].trim().toLowerCase();
 }
 function parseZohoDate(dateStr) {
   if (!dateStr) return null;
-  // convert "16-Jun-2026" → "16 Jun 2026"
+  // convert "16-Jun-2026" â†’ "16 Jun 2026"
   return new Date(dateStr.replace(/-/g, " "));
 }
 
@@ -171,7 +171,7 @@ function showLoading() {
   const el = document.getElementById("fxLoader");
   if (!el) return;
   setLoadingProgress(5, "Initializing secure connection");
-  el.classList.add("is-active"); // ⬅️ harmless now (already active from HTML), but kept as a safety net in case the overlay was ever hidden/removed programmatically elsewhere
+  el.classList.add("is-active"); // â¬…ï¸ harmless now (already active from HTML), but kept as a safety net in case the overlay was ever hidden/removed programmatically elsewhere
 }
 
 function setLoadingProgress(pct, text) {
@@ -193,16 +193,13 @@ function hideLoading() {
 document.addEventListener("DOMContentLoaded", async function () {
 
   showLoading();
-  initSearchableSelect("f-location", "All Locations");
+  initSearchableSelect("f-location", "All Hospitals");
   initSearchableSelect("f-doctor",   "All Doctors");
-//   initSearchableSelect("f-payer",    "All Payers");
-  initMultiSelect("f-patient",       "All Patients");   // ← was initSearchableSelect
-
-  initMultiSelect("f-itemnumber",    "All Items");
+  initSearchableSelect("f-patient",  "All Patients");
 
   try {
     if (typeof ZOHO === "undefined") {
-      console.error("❌ ZOHO SDK not loaded");
+      console.error("âŒ ZOHO SDK not loaded");
       return;
     }
 
@@ -212,7 +209,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     const claims = await fetchAllRecords("Add_Claim_Report");
     ALL_CLAIMS    = claims;
     FILTERED_DATA = claims;
-    setLoadingProgress(35, "Claims loaded · resolving items");
+    setLoadingProgress(35, "Claims loaded Â· resolving items");
 
     /* 2) Everything else in parallel */
 const [items, doctors, hospitals, mappings, patients] = await Promise.all([
@@ -243,7 +240,7 @@ const [items, doctors, hospitals, mappings, patients] = await Promise.all([
     console.timeEnd("total load");
 
   } catch (error) {
-    console.error("❌ Error:", error);
+    console.error("âŒ Error:", error);
   } finally {
     hideLoading();
   }
@@ -349,7 +346,7 @@ function setItemNumberOptions(items) {
 // item numbers when the Item Number filter is active.
 // Add trimming for safety against stray whitespace/formatting mismatches
 function getEffectiveClaimLines(c) {
-  const lines = getClaimLines(c);            // ← was getClaimUniqueLines(c)
+  const lines = getClaimLines(c);            // â† was getClaimUniqueLines(c)
   if (!SELECTED_ITEM_NUMBERS.length) return lines;
   const selected = SELECTED_ITEM_NUMBERS.map(v => String(v).trim());
   return lines.filter(l => selected.includes(String(getLineItemNumber(l)).trim()));
@@ -362,7 +359,7 @@ function getEffectiveClaimLines(c) {
 function initMultiSelect(id, allLabel) {
   const wrapper = document.getElementById(id);
   if (!wrapper) {
-    console.error(`❌ Multi-select container not found: #${id}`);
+    console.error(`âŒ Multi-select container not found: #${id}`);
     return;
   }
 
@@ -406,7 +403,7 @@ wrapper.innerHTML = `
     }
   });
 
-  // 🔑 THE FIX: stop every click inside the dropdown panel
+  // ðŸ”‘ THE FIX: stop every click inside the dropdown panel
   // (search box, checkbox list, labels, checkboxes, buttons)
   // from bubbling up to the document-level "close all" listener.
   dropdown.addEventListener("click", (e) => e.stopPropagation());
@@ -427,7 +424,7 @@ clearBtn.addEventListener("click", () => {
   wrapper.querySelectorAll('.ms-option input[type="checkbox"]').forEach(cb => cb.checked = false);
   if (id === "f-itemnumber") CHECKED_ITEM_NUMBERS.clear();
   updateMultiSelectLabel(wrapper, allLabel);
-  reorderMultiSelectChecked(wrapper); // ⬅️ ADDED — restore natural order after clearing
+  reorderMultiSelectChecked(wrapper); // â¬…ï¸ ADDED â€” restore natural order after clearing
 });
 
   applyBtn.addEventListener("click", () => {
@@ -471,7 +468,7 @@ function setMultiSelectOptions(id, items) {
   const list = wrapper.querySelector(".ms-options");
   list.innerHTML = "";
 
-  wrapper._msOriginalOrder = items.map(item => String(item.value)); // ⬅️ ADDED — remembers natural order for checked-to-top sorting
+  wrapper._msOriginalOrder = items.map(item => String(item.value)); // â¬…ï¸ ADDED â€” remembers natural order for checked-to-top sorting
 
   items.forEach(item => {
     const li = document.createElement("li");
@@ -500,12 +497,12 @@ function setMultiSelectOptions(id, items) {
         cb.checked ? CHECKED_ITEM_NUMBERS.add(cb.value) : CHECKED_ITEM_NUMBERS.delete(cb.value);
       }
       updateMultiSelectLabel(wrapper, allLabel);
-      reorderMultiSelectChecked(wrapper); // ⬅️ ADDED — move the item to the top the moment it's checked
+      reorderMultiSelectChecked(wrapper); // â¬…ï¸ ADDED â€” move the item to the top the moment it's checked
     });
   });
 
   updateMultiSelectLabel(wrapper, allLabel);
-  reorderMultiSelectChecked(wrapper); // ⬅️ ADDED — keep previously-checked items on top when the list is rebuilt
+  reorderMultiSelectChecked(wrapper); // â¬…ï¸ ADDED â€” keep previously-checked items on top when the list is rebuilt
 }
 
 function updateMultiSelectLabel(wrapper, allLabel) {
@@ -525,7 +522,7 @@ function filterMultiOptions(wrapper, query) {
   let anyVisible = false;
 
   wrapper.querySelectorAll(".ms-option").forEach(li => {
-    const textSpan = li.querySelector(".ms-option-text"); // ⬅️ FIXED — was li.querySelector("span"), which grabbed the empty .ms-checkmark span instead
+    const textSpan = li.querySelector(".ms-option-text"); // â¬…ï¸ FIXED â€” was li.querySelector("span"), which grabbed the empty .ms-checkmark span instead
     if (!textSpan) return;
     const match = textSpan.textContent.toLowerCase().includes(q);
     li.style.display = match ? "" : "none";
@@ -676,16 +673,15 @@ function populatePayers(claims) {
 // not just the patients who happen to appear on a claim. This ensures every
 // patient in the system shows up in the filter, correctly labelled as
 // "NAME - DOB".
-// populatePatients() — feed the multiselect instead
 function populatePatients(patients) {
   const items = patients
     .filter(p => p.ID && PATIENT_INFO_MAP[p.ID])
     .map(p => PATIENT_INFO_MAP[p.ID]);
 
   items.sort((a, b) => a.label.localeCompare(b.label));
-  setMultiSelectOptions("f-patient", items);   // ← was setSearchableOptions
+  setSearchableOptions("f-patient", items, "All Patients");
 }
-// Helper to resolve patient value/label consistently everywhere — sourced from Patients module
+// Helper to resolve patient value/label consistently everywhere â€” sourced from Patients module
 function getClaimPatientInfo(c) {
   if (c.Patient && c.Patient.ID) {
     const info = PATIENT_INFO_MAP[c.Patient.ID];
@@ -755,13 +751,13 @@ function updateLocationOptionsForDoctor(doctorId) {
 function initSearchableSelect(id, allLabel) {
   const wrapper = document.getElementById(id);
   if (!wrapper) {
-    console.error(`❌ Searchable select container not found: #${id}`);
+    console.error(`âŒ Searchable select container not found: #${id}`);
     return;
   }
 
   wrapper.classList.add("searchable-select");
   wrapper.dataset.value = "";
-  wrapper.dataset.allLabel = allLabel; // ⬅️ ADDED — needed by resetFilters()
+  wrapper.dataset.allLabel = allLabel; // â¬…ï¸ ADDED â€” needed by resetFilters()
 
   wrapper.innerHTML = `
     <div class="ss-control" tabindex="0">
@@ -781,7 +777,7 @@ function initSearchableSelect(id, allLabel) {
     e.stopPropagation();
     const willOpen = !wrapper.classList.contains("open");
     closeAllSearchableSelects();
-    closeAllMultiSelects(); // ⬅️ ADDED for consistency
+    closeAllMultiSelects(); // â¬…ï¸ ADDED for consistency
     if (willOpen) {
       wrapper.classList.add("open");
       search.value = "";
@@ -832,7 +828,8 @@ function setSearchableOptions(id, items, allLabel) {
 
 function selectOption(wrapper, value, label) {
   wrapper.dataset.value = value;
-  wrapper.querySelector(".ss-value").textContent = label;
+  const displayLabel = (wrapper.id === "f-patient" && value) ? stripDob(label) : label;
+  wrapper.querySelector(".ss-value").textContent = displayLabel;
   wrapper.classList.remove("open");
 
   // Cascade: when the doctor changes, refresh the Location options
@@ -878,16 +875,13 @@ document.addEventListener("click", () => {
 /* ===================================================
    REPORT / FILTER LOGIC
    =================================================== */
-// runReport() — read multiple patient IDs
+// runReport() â€” read multiple patient IDs
 function runReport() {
-  const doctorId    = getSearchableValue("f-doctor");
-  const hospitalId  = getSearchableValue("f-location");
-  const patientIds  = getMultiSelectValues("f-patient");   // ← was getSearchableValue
-  const itemNumbers = getMultiSelectValues("f-itemnumber");
-  const fromDate    = document.getElementById("f-from").value;
-  const toDate      = document.getElementById("f-to").value;
-
-  SELECTED_ITEM_NUMBERS = itemNumbers;
+  const doctorId   = getSearchableValue("f-doctor");
+  const hospitalId = getSearchableValue("f-location");
+  const patientId  = getSearchableValue("f-patient");
+  const fromDate   = document.getElementById("f-from").value;
+  const toDate     = document.getElementById("f-to").value;
 
   let filtered = [...ALL_CLAIMS];
 
@@ -897,11 +891,8 @@ function runReport() {
   if (hospitalId) {
     filtered = filtered.filter(c => c.Hospital && String(c.Hospital.ID) === String(hospitalId));
   }
-  if (patientIds.length) {
-    filtered = filtered.filter(c => c.Patient && patientIds.includes(String(c.Patient.ID)));
-  }
-  if (itemNumbers.length) {
-    filtered = filtered.filter(c => getEffectiveClaimLines(c).length > 0);
+  if (patientId) {
+    filtered = filtered.filter(c => c.Patient && String(c.Patient.ID) === String(patientId));
   }
   if (fromDate) {
     const from = new Date(fromDate);
@@ -941,7 +932,7 @@ function getPatientDisplayWithDOB(c) {
 }
 
 /* ===================================================
-   TABLE RENDER — claim row + grouped subform line items
+   TABLE RENDER â€” claim row + grouped subform line items
    =================================================== */
 
 
@@ -1068,7 +1059,7 @@ function getClaimItemAmounts(c) {
 function computeSummary(claims) {
   const totalClaims = claims.length;
   let totalLineItems = 0;
-  let totalBilledAmount = 0; // ⬅️ ADDED
+  let totalBilledAmount = 0; // â¬…ï¸ ADDED
   const typeTotals = {};
 
   claims.forEach(c => {
@@ -1077,11 +1068,11 @@ function computeSummary(claims) {
     lines.forEach(l => {
       const type = getLineItemType(l) || "-";
       typeTotals[type] = (typeTotals[type] || 0) + 1;
-      totalBilledAmount += Number(getLineAmount(l)) || 0; // ⬅️ ADDED
+      totalBilledAmount += Number(getLineAmount(l)) || 0; // â¬…ï¸ ADDED
     });
   });
 
-  return { totalClaims, totalLineItems, typeTotals, totalBilledAmount }; // ⬅️ ADDED totalBilledAmount
+  return { totalClaims, totalLineItems, typeTotals, totalBilledAmount }; // â¬…ï¸ ADDED totalBilledAmount
 }
 
 
@@ -1115,7 +1106,7 @@ function renderSummary(data) {
         <div class="label">Total Line Items</div>
         <div class="value">${s.totalLineItems}</div>
       </div>
-      <div class="summary-stat"> <!-- ⬅️ ADDED -->
+      <div class="summary-stat"> <!-- â¬…ï¸ ADDED -->
         <div class="label">Total Billed Amount</div>
         <div class="value">${fmtMoney(s.totalBilledAmount)}</div>
       </div>
@@ -1388,17 +1379,17 @@ function getExportRows() {
 /* ---------------- EXPORT EXCEL ---------------- */
 
 /* ===================================================
-   EXPORT EXCEL — styled to match the Claims Status Report
+   EXPORT EXCEL â€” styled to match the Claims Status Report
    design (title, filter summary row, colored table header).
 
-   SETUP — add this ONCE in your HTML, before your other scripts:
+   SETUP â€” add this ONCE in your HTML, before your other scripts:
 
    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 
    This gives you the global `XLSX` object used below. Unlike the
    plain "xlsx" CDN build (which silently ignores cell styling),
    this build actually renders fill color, font color, alignment,
-   and borders in the downloaded file — that's why the header
+   and borders in the downloaded file â€” that's why the header
    color/alignment wasn't showing up before.
    =================================================== */
 
@@ -1576,7 +1567,7 @@ FILTERED_DATA.forEach(c => {
   XLSX.writeFile(workbook, `Billing_Status_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 /**
- * Billing Status Report — styled to match the Medi Elves report template.
+ * Billing Status Report â€” styled to match the Medi Elves report template.
  */
 
 const BRAND = {
@@ -1629,7 +1620,8 @@ function getFilterDisplayLabel(id, fallback) {
 function getActiveFilterInfo() {
   return {
     doctor:   getFilterDisplayLabel("f-doctor",   "All Doctors"),
-    hospital: getFilterDisplayLabel("f-location", "All Locations"),
+    hospital: getFilterDisplayLabel("f-location", "All Hospitals"),
+    patient:  getFilterDisplayLabel("f-patient",  "All Patients"),
     dateFrom: (document.getElementById("f-from") || {}).value || "",
     dateTo:   (document.getElementById("f-to")   || {}).value || ""
   };
@@ -1642,7 +1634,7 @@ function formatDateRange(from, to) {
     const d = new Date(iso + "T00:00:00");
     return isNaN(d) ? iso : d.toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
   };
-  if (from && to) return `${pretty(from)} – ${pretty(to)}`;
+  if (from && to) return `${pretty(from)} â€“ ${pretty(to)}`;
   if (from) return `From ${pretty(from)}`;
   if (to) return `Up to ${pretty(to)}`;
   return "All Dates";
@@ -1691,10 +1683,10 @@ function buildPdfBody() {
       ];
 
       if (span) {
-        // First row of an item group — carry rowSpan via cell objects
+        // First row of an item group â€” carry rowSpan via cell objects
         row.push({ content: itemNo, rowSpan: span });
       }
-      // When span is null, push nothing — jsPDF-AutoTable requires spanned rows to omit the cell
+      // When span is null, push nothing â€” jsPDF-AutoTable requires spanned rows to omit the cell
 
       row.push(getLineDateOfService(l));
       row.push(getLinePaymentDate(l));
@@ -1708,7 +1700,7 @@ function buildPdfBody() {
 }
 
 
-// resetFilters() — patient reset now goes through the multiselect path
+// resetFilters() â€” patient reset now goes through the multiselect path
 function resetMultiSelect(id, allLabel) {
   const wrapper = document.getElementById(id);
   if (!wrapper) return;
@@ -1718,14 +1710,12 @@ function resetMultiSelect(id, allLabel) {
 }
 
 function resetFilters() {
-  ["f-doctor", "f-location"].forEach(id => {
+  ["f-doctor", "f-location", "f-patient"].forEach(id => {
     const wrapper = document.getElementById(id);
     if (!wrapper) return;
     wrapper.dataset.value = "";
     wrapper.querySelector(".ss-value").textContent = wrapper.dataset.allLabel || "All";
   });
-
-  resetMultiSelect("f-patient", "All Patients");
 
   document.getElementById("f-from").value = "";
   document.getElementById("f-to").value = "";
@@ -1916,13 +1906,13 @@ async function exportPDF() {
   const { jsPDF } = window.jspdf;
 
   const doc = new jsPDF({
-    orientation: "l",   // ⬅️ CHANGED — landscape
+    orientation: "l",   // â¬…ï¸ CHANGED â€” landscape
     unit: "pt",
     format: "a4"
   });
 
-  const pageW = doc.internal.pageSize.getWidth();   // ⬅️ now ~841.89pt
-  const pageH = doc.internal.pageSize.getHeight();  // ⬅️ now ~595.28pt
+  const pageW = doc.internal.pageSize.getWidth();   // â¬…ï¸ now ~841.89pt
+  const pageH = doc.internal.pageSize.getHeight();  // â¬…ï¸ now ~595.28pt
   const margin = 40;
 
   const headerInfo = {
@@ -1983,7 +1973,7 @@ async function exportPDF() {
     },
     tableWidth: "auto",
 columnStyles: {
-  // 9 columns, total usable width ~761.89pt (landscape A4 minus 2×40pt margin)
+  // 9 columns, total usable width ~761.89pt (landscape A4 minus 2Ã—40pt margin)
   0: { cellWidth: 65 },                      // Claim ID
   1: { cellWidth: 82 },                      // Doctor
   2: { cellWidth: 90 },                      // Hospital
@@ -2005,7 +1995,7 @@ columnStyles: {
   drawGrandSummary(doc, pageW, pageH, margin, headerInfo, HEADER_HEIGHT, FOOTER_RESERVED);
 
   /* ---------------- SAVE ---------------- */
-doc.save(`Item_Utilisation_Report_${new Date().toISOString().slice(0, 10)}.pdf`); // ⬅️ CHANGED — was "Billing_Status_Report_..." to match the on-page title "Item Utilisation Report"
+doc.save(`Item_Utilisation_Report_${new Date().toISOString().slice(0, 10)}.pdf`); // â¬…ï¸ CHANGED â€” was "Billing_Status_Report_..." to match the on-page title "Item Utilisation Report"
 }
 
 function drawGrandSummary(doc, pageW, pageH, margin, headerInfo, HEADER_HEIGHT, FOOTER_RESERVED) {
@@ -2014,7 +2004,7 @@ function drawGrandSummary(doc, pageW, pageH, margin, headerInfo, HEADER_HEIGHT, 
   const rows = [
     ["Total Claims", String(s.totalClaims)],
     ["Total Line Items", String(s.totalLineItems)],
-    ["Total Billed Amount", fmtMoney(s.totalBilledAmount)] // ⬅️ ADDED
+    ["Total Billed Amount", fmtMoney(s.totalBilledAmount)] // â¬…ï¸ ADDED
   ];
   Object.entries(s.typeTotals)
     .sort((a, b) => b[1] - a[1])
@@ -2149,7 +2139,7 @@ function drawFooter(doc, pageW, margin) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(...BRAND.navyText);
-  doc.text("CONFIDENTIAL – CONTAINS SENSITIVE HEALTH INFORMATION", textX, titleY);
+  doc.text("CONFIDENTIAL â€“ CONTAINS SENSITIVE HEALTH INFORMATION", textX, titleY);
 
   const pageCount = doc.internal.getNumberOfPages();
   const current    = doc.internal.getCurrentPageInfo().pageNumber;
