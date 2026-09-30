@@ -21,7 +21,7 @@
 <body>
 
 <!-- LOADING OVERLAY -->
-<div id="fxLoader" class="fx-loader is-active" role="status" aria-live="polite"> <!-- ⬅️ CHANGED — added "is-active" so it's visible immediately on first paint, before any JS runs -->
+<div id="fxLoader" class="fx-loader is-active" role="status" aria-live="polite">
   <div class="fx-grid"></div>
 
   <div class="fx-panel">
@@ -80,14 +80,10 @@
           <div id="f-location"></div>
         </div>
 
-
-
         <div class="filter-group">
           <label>Patient</label>
           <div id="f-patient"></div>
         </div>
-
-       
 
         <div class="filter-group">
           <label>From Date</label>
@@ -132,47 +128,38 @@
     <div class="table-card">
       <div class="table-scroll">
         <table>
-<colgroup>
-  <col style="width:150px">
-  <col style="width:160px">
-  <col style="width:190px">
-  <col style="width:110px">   <!-- Status -->
-  <col style="width:110px">   <!-- Date of Service -->
-  <col style="width:110px">   <!-- Payment Date -->
-  <col style="width:110px">
-  <col style="width:90px">
-  <col style="width:340px">
-  <col style="width:120px">
-  <col style="width:140px">
-</colgroup>
+          <colgroup>
+            <col style="width:95px">   <!-- Claim ID -->
+            <col style="width:130px">  <!-- Doctor -->
+            <col style="width:150px">  <!-- Hospital -->
+            <col style="width:140px">  <!-- Patient -->
+            <col style="width:95px">   <!-- Claim Date -->
+            <col style="width:80px">   <!-- Item No -->
+            <col style="width:100px">  <!-- Date of Service -->
+            <col style="width:100px">  <!-- Payment Date -->
+            <col style="width:120px">  <!-- Process Payment Days -->
+          </colgroup>
           <thead>
             <tr>
-<tr>
-  <th>Claim ID</th>
-  <th>Doctor</th>
-  <th>Hospital</th>
-  <th>Patient</th>
-  <th>Claim Date</th>
-   <th>Item Number</th>
-  <th>Date of Service</th>
-  <th>Payment Date</th>
-   <th>ProcessPayment Days</th>
- 
- 
-</tr>
+              <th>Claim ID</th>
+              <th>Doctor</th>
+              <th>Hospital</th>
+              <th>Patient</th>
+              <th>Claim Date</th>
+              <th>Item No</th>
+              <th>Date of Service</th>
+              <th>Payment Date</th>
+              <th>Process Payment Days</th>
+            </tr>
           </thead>
           <tbody id="report-body">
             <tr>
-              <td colspan="11">No data</td>
+              <td colspan="9">No data</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
-    <!-- GRAND SUMMARY
-    <div class="summary-card" id="report-summary">
-      populated by renderSummary()
-    </div> -->
   </div>
   <script src="./script.js"></script>
 </body>
