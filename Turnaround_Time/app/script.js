@@ -163,8 +163,37 @@ function normItemKey(v) {
 }
 function parseZohoDate(dateStr) {
   if (!dateStr) return null;
-  // convert "16-Jun-2026" â†’ "16 Jun 2026"
-  return new Date(dateStr.replace(/-/g, " "));
+  if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
+  const str = String(dateStr).trim();
+  if (!str) return null;
+
+  // Handle DD/MM/YYYY or DD-MM-YYYY (Australian standard format)
+  const dmyMatch = str.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    const d = new Date(year, month, day);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Handle YYYY-MM-DD (ISO format from HTML date inputs)
+  const ymdMatch = str.match(/^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})$/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    const d = new Date(year, month, day);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Handle "28 Sept 2026" or "28-Sept-2026" -> normalize "Sept" to "Sep"
+  const clean = str.replace(/-/g, " ").replace(/\bSept\b/gi, "Sep");
+  const d = new Date(clean);
+  if (!isNaN(d.getTime())) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  return null;
 }
 
 function showLoading() {
@@ -930,12 +959,17 @@ function runReport() {
     filtered = filtered.filter(c => c.Patient && String(c.Patient.ID) === String(patientId));
   }
   if (fromDate) {
-    const from = new Date(fromDate);
-    filtered = filtered.filter(c => { const d = getClaimDate(c); return d && d >= from; });
+    const from = parseZohoDate(fromDate);
+    if (from) {
+      filtered = filtered.filter(c => { const d = getClaimDate(c); return d && d >= from; });
+    }
   }
   if (toDate) {
-    const to = new Date(toDate);
-    filtered = filtered.filter(c => { const d = getClaimDate(c); return d && d <= to; });
+    const to = parseZohoDate(toDate);
+    if (to) {
+      to.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(c => { const d = getClaimDate(c); return d && d <= to; });
+    }
   }
 
   FILTERED_DATA = filtered;
@@ -1456,6 +1490,7 @@ function exportExcel() {
   aoa.push([`Hospital: ${info.hospital || "All"}`]);
   aoa.push([`Date Range: ${formatDateRange(info.dateFrom, info.dateTo)}`]);
   aoa.push([`Generated On: ${new Date().toLocaleString("en-AU", {
+    timeZone: "Australia/Sydney",
     day: "2-digit", month: "short", year: "numeric",
     hour: "numeric", minute: "2-digit", hour12: true
   })}`]);
@@ -1666,11 +1701,13 @@ function getActiveFilterInfo() {
 
 
 function formatDateRange(from, to) {
-  const pretty = (iso) => {
-    const d = new Date(iso + "T00:00:00");
-    return isNaN(d) ? iso : d.toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
+  const pretty = (val) => {
+    const d = parseZohoDate(val);
+    return (d && !isNaN(d.getTime()))
+      ? d.toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric", timeZone: "Australia/Sydney" })
+      : val;
   };
-  if (from && to) return `${pretty(from)} â€“ ${pretty(to)}`;
+  if (from && to) return `${pretty(from)} - ${pretty(to)}`;
   if (from) return `From ${pretty(from)}`;
   if (to) return `Up to ${pretty(to)}`;
   return "All Dates";
@@ -1956,6 +1993,7 @@ async function exportPDF() {
     doctor: info.doctor,
     date: formatDateRange(info.dateFrom, info.dateTo),
     generatedOn: new Date().toLocaleString("en-AU", {
+      timeZone: "Australia/Sydney",
       day: "2-digit", month: "short", year: "numeric",
       hour: "numeric", minute: "2-digit", hour12: true
     })
@@ -2175,7 +2213,7 @@ function drawFooter(doc, pageW, margin) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(...BRAND.navyText);
-  doc.text("CONFIDENTIAL â€“ CONTAINS SENSITIVE HEALTH INFORMATION", textX, titleY);
+  doc.text("CONFIDENTIAL - CONTAINS SENSITIVE HEALTH INFORMATION", textX, titleY);
 
   const pageCount = doc.internal.getNumberOfPages();
   const current    = doc.internal.getCurrentPageInfo().pageNumber;
