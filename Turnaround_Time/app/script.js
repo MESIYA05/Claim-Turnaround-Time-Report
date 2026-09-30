@@ -977,7 +977,8 @@ function calcProcessPaymentDays(l) {
   const pay = parseZohoDate(l.Payment_Date);
   if (!dos || !pay || isNaN(dos.getTime()) || isNaN(pay.getTime())) return "-";
   const diff = Math.round((pay - dos) / (1000 * 60 * 60 * 24));
-  return diff >= 0 ? diff : "-";
+  if (diff < 0) return "-";
+  return diff === 1 ? "1 Day" : `${diff} Days`;
 }
 
 /* ---- Format Claim Date for display ---- */
