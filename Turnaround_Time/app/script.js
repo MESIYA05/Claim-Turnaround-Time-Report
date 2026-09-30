@@ -1424,7 +1424,7 @@ function exportExcel() {
   const info = getActiveFilterInfo();
   const aoa = [];
 
-  aoa.push(["Item Utilisation Report"]);
+  aoa.push(["Claims Turnaround Time Report"]);
   aoa.push([`Doctor: ${info.doctor || "All"}`]);
   aoa.push([`Hospital: ${info.hospital || "All"}`]);
   aoa.push([`Date Range: ${formatDateRange(info.dateFrom, info.dateTo)}`]);
@@ -2080,7 +2080,7 @@ function drawHeader(doc, pageW, margin, info) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(17);
   doc.setTextColor(...BRAND.navy);
-  doc.text("Item Utilisation Report", pageW - margin, 52, { align: "right" });
+  doc.text("Claims Turnaround Time Report", pageW - margin, 52, { align: "right" });
 
   const sepY = 96;
   doc.setFillColor(...ICON_COLOR);
