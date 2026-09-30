@@ -2029,35 +2029,36 @@ async function exportPDF() {
       }
     },
     styles: {
-      fontSize: 7,
+      fontSize: 7.5,
       textColor: [0, 0, 0],
       fillColor: BRAND.white,
       lineColor: BRAND.lightGrey,
       lineWidth: 0.5,
-      cellPadding: 3,
+      cellPadding: 4,
       overflow: "linebreak",
-      valign: "top"
+      valign: "middle"
     },
     headStyles: {
       fillColor: BRAND.navy,
       textColor: BRAND.white,
       fontStyle: "bold",
-      fontSize: 6.5,
-      cellPadding: 4
+      fontSize: 7,
+      cellPadding: 5,
+      valign: "middle"
     },
-    tableWidth: "auto",
-columnStyles: {
-  // 9 columns, total usable width ~761.89pt (landscape A4 minus 2Ã—40pt margin)
-  0: { cellWidth: 65 },                      // Claim ID
-  1: { cellWidth: 82 },                      // Doctor
-  2: { cellWidth: 90 },                      // Hospital
-  3: { cellWidth: 100 },                     // Patient
-  4: { cellWidth: 65, halign: "center" },    // Claim Date
-  5: { cellWidth: 55, halign: "center" },    // Item No
-  6: { cellWidth: 80, halign: "center" },    // Date of Service
-  7: { cellWidth: 80, halign: "center" },    // Payment Date
-  8: { cellWidth: 75, halign: "center" }     // Process Payment Days
-},
+    tableWidth: pageW - margin * 2,
+    columnStyles: {
+      // 9 columns filling the full usable width (pageW - margin * 2 ≈ 761.89pt)
+      0: { cellWidth: 72, halign: "center" },    // Claim ID
+      1: { cellWidth: 95, halign: "left" },      // Doctor
+      2: { cellWidth: 115, halign: "left" },     // Hospital
+      3: { cellWidth: 115, halign: "left" },     // Patient
+      4: { cellWidth: 75, halign: "center" },    // Claim Date
+      5: { cellWidth: 55, halign: "center" },    // Item No
+      6: { cellWidth: 80, halign: "center" },    // Date of Service
+      7: { cellWidth: 75, halign: "center" },    // Payment Date
+      8: { cellWidth: 80, halign: "center" }     // Process Payment Days
+    },
     didDrawPage: () => {
       drawHeader(doc, pageW, margin, headerInfo);
       drawFooter(doc, pageW, margin);
