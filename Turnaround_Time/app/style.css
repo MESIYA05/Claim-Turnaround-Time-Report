@@ -660,8 +660,8 @@ td.item-ppdays {
 }
 
 tr.grp-a td.claim-cell { background: #fff; }
-tr.grp-b td.claim-cell { background: var(--row-alt); }
-tr.grp-b td { background: var(--row-alt); }
+/* tr.grp-b td.claim-cell { background: var(--row-alt); } */
+/* tr.grp-b td { background: var(--row-alt); } */
 
 tbody tr:hover td { background: var(--primary-soft) !important; }
 
