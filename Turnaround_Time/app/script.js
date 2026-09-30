@@ -649,10 +649,11 @@ function buildPatientInfoMap(patients) {
 }
 function populateHospitals(hospitals) {
   ALL_HOSPITALS = hospitals.map(hos => ({
-    value: hos.ID,
+    value: String(hos.ID),
     label: hos.Hospital_Name || hos.zc_display_value
   }));
-  setSearchableOptions("f-location", ALL_HOSPITALS, "All Locations");
+  ALL_HOSPITALS.sort((a, b) => a.label.localeCompare(b.label));
+  setSearchableOptions("f-location", ALL_HOSPITALS, "All Hospitals");
 }
 
 function populatePayers(claims) {
@@ -698,29 +699,61 @@ function getClaimPatientInfo(c) {
    DOCTOR -> HOSPITAL MAPPING
    =================================================== */
 
+function getLookupId(val) {
+  if (!val) return null;
+  if (typeof val === "object") return val.ID || val.id || null;
+  return String(val);
+}
+
+function getLookupLabel(val) {
+  if (!val) return "";
+  if (typeof val === "object") {
+    return val.zc_display_value || val.display_value || val.Hospital_Name || val.Doctor_Name || "";
+  }
+  return String(val);
+}
+
 function buildDoctorHospitalMap(mappings) {
   DOCTOR_HOSPITAL_MAP = {};
 
-  mappings.forEach(m => {
-    // NOTE: adjust these two field names to match your mapping report's
-    // actual lookup field API names (e.g. Doctor / Hospital)
-    const doctorId   = m.Doctor_Name?.ID;
-    const hospital    = m.Hospital;
-
-    if (!doctorId || !hospital) return;
-
-    if (!DOCTOR_HOSPITAL_MAP[doctorId]) {
-      DOCTOR_HOSPITAL_MAP[doctorId] = [];
+  function addMapping(docId, hosId, hosLabel) {
+    if (!docId || !hosId) return;
+    const dKey = String(docId);
+    if (!DOCTOR_HOSPITAL_MAP[dKey]) {
+      DOCTOR_HOSPITAL_MAP[dKey] = [];
     }
-
-    // avoid duplicate hospital entries for the same doctor
-    const already = DOCTOR_HOSPITAL_MAP[doctorId].some(h => String(h.value) === String(hospital.ID));
+    const already = DOCTOR_HOSPITAL_MAP[dKey].some(h => String(h.value) === String(hosId));
     if (!already) {
-      DOCTOR_HOSPITAL_MAP[doctorId].push({
-        value: hospital.ID,
-        label: hospital.zc_display_value
+      DOCTOR_HOSPITAL_MAP[dKey].push({
+        value: String(hosId),
+        label: hosLabel || "Hospital"
       });
     }
+  }
+
+  // 1) From All_Doctor_Hospital_Mappings report
+  (mappings || []).forEach(m => {
+    const docVal = m.Doctor_Name || m.Doctor || m.Doctors || m.Doctor_ID;
+    const docId = getLookupId(docVal);
+
+    const hosVal = m.Hospital || m.Hospital_Name || m.Hospitals || m.Hospital_ID;
+    const hosId = getLookupId(hosVal);
+    const hosLabel = getLookupLabel(hosVal);
+
+    addMapping(docId, hosId, hosLabel);
+  });
+
+  // 2) Supplement from ALL_CLAIMS so doctor's active hospitals always appear
+  (ALL_CLAIMS || []).forEach(c => {
+    const docId = getLookupId(c.Doctor);
+    const hosId = getLookupId(c.Hospital);
+    const hosLabel = getLookupLabel(c.Hospital) || c.Hospital_Name;
+    addMapping(docId, hosId, hosLabel);
+  });
+
+  // Sort hospitals alphabetically for each doctor
+  Object.keys(DOCTOR_HOSPITAL_MAP).forEach(dKey => {
+    DOCTOR_HOSPITAL_MAP[dKey].sort((a, b) => a.label.localeCompare(b.label));
   });
 
   console.log("Doctor->Hospital map built:", DOCTOR_HOSPITAL_MAP);
@@ -730,18 +763,20 @@ function updateLocationOptionsForDoctor(doctorId) {
   const locWrapper = document.getElementById("f-location");
   if (!locWrapper) return;
 
-  // Reset the current Location selection since the option set is changing
+  // Reset the current Hospital selection since doctor changed
   locWrapper.dataset.value = "";
-  locWrapper.querySelector(".ss-value").textContent = "All Locations";
+  locWrapper.querySelector(".ss-value").textContent = "All Hospitals";
 
   if (!doctorId) {
-    // No doctor selected -> show every hospital again
-    setSearchableOptions("f-location", ALL_HOSPITALS, "All Locations");
+    // No doctor selected -> show every hospital
+    setSearchableOptions("f-location", ALL_HOSPITALS, "All Hospitals");
     return;
   }
 
-  const mapped = DOCTOR_HOSPITAL_MAP[doctorId] || [];
-  setSearchableOptions("f-location", mapped, "All Locations");
+  const mapped = DOCTOR_HOSPITAL_MAP[String(doctorId)] || [];
+  // If doctor has mapped hospitals, show them. Otherwise fallback to ALL_HOSPITALS so user is never blocked
+  const options = mapped.length ? mapped : ALL_HOSPITALS;
+  setSearchableOptions("f-location", options, "All Hospitals");
 }
 
 /* ===================================================
@@ -1564,7 +1599,7 @@ FILTERED_DATA.forEach(c => {
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Claims Report");
-  XLSX.writeFile(workbook, `Billing_Status_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.writeFile(workbook, "Claims Turnaround Time Report.xlsx");
 }
 /**
  * Billing Status Report â€” styled to match the Medi Elves report template.
@@ -1995,7 +2030,7 @@ columnStyles: {
   drawGrandSummary(doc, pageW, pageH, margin, headerInfo, HEADER_HEIGHT, FOOTER_RESERVED);
 
   /* ---------------- SAVE ---------------- */
-doc.save(`Item_Utilisation_Report_${new Date().toISOString().slice(0, 10)}.pdf`); // â¬…ï¸ CHANGED â€” was "Billing_Status_Report_..." to match the on-page title "Item Utilisation Report"
+doc.save("Claims Turnaround Time Report.pdf");
 }
 
 function drawGrandSummary(doc, pageW, pageH, margin, headerInfo, HEADER_HEIGHT, FOOTER_RESERVED) {
