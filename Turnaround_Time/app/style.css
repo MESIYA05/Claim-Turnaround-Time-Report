@@ -591,7 +591,6 @@ input[type="date"]:focus {
 
 .table-scroll table {
   width: 100%;
-  min-width: 895px;   /* optimized 10-column layout — prevents horizontal overflow */
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
@@ -1380,16 +1379,29 @@ td.billed-amount {
 th.sortable-col {
   cursor: pointer;
   user-select: none;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: normal;
+  text-align: center;
+  vertical-align: middle;
+  transition: background 0.18s ease;
 }
 th.sortable-col:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: #5050a8 !important;
+  color: #ffffff !important;
+}
+.sort-header-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  line-height: 1.25;
 }
 .sort-icon {
   display: inline-block;
-  margin-left: 5px;
   font-size: 13px;
-  opacity: 0.9;
+  font-weight: 900;
+  color: #ffffff !important;
+  opacity: 0.95;
   vertical-align: middle;
 }
 .text-center { text-align: center !important; }
@@ -1405,4 +1417,8 @@ th.sortable-col:hover {
     margin-left: 12px !important;
     margin-right: 12px !important;
   }
+}
+
+@media (max-width: 850px) {
+  .table-scroll table { min-width: 850px; }
 }

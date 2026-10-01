@@ -1207,15 +1207,15 @@ function updateAvgTurnaroundBar(data) {
 
 /* ---- Sorting by Payment Turnaround (Days) ---- */
 function toggleTurnaroundSort() {
-  if (TURNAROUND_SORT_DIR === null || TURNAROUND_SORT_DIR === "desc") {
-    TURNAROUND_SORT_DIR = "asc";
-  } else {
+  if (TURNAROUND_SORT_DIR === null || TURNAROUND_SORT_DIR === "asc") {
     TURNAROUND_SORT_DIR = "desc";
+  } else {
+    TURNAROUND_SORT_DIR = "asc";
   }
 
   const icon = document.getElementById("sort-icon-turnaround");
   if (icon) {
-    icon.innerHTML = TURNAROUND_SORT_DIR === "asc" ? "&#8593;" : "&#8595;";
+    icon.innerHTML = TURNAROUND_SORT_DIR === "desc" ? "&#8595;" : "&#8593;";
   }
 
   renderTable(FILTERED_DATA);
