@@ -447,13 +447,13 @@ body {
   max-width: 1392px;
 }
 @media (min-width: 1200px) {
-  .filter-card, .table-card, .summary-card {
+  .filter-card, .table-card, .summary-card, .avg-turnaround-bar {
     margin-left: 24px;
     margin-right: 24px;
   }
 }
 @media (min-width: 1464px) {
-  .filter-card, .table-card, .summary-card { margin-left: auto; margin-right: auto; }
+  .filter-card, .table-card, .summary-card, .avg-turnaround-bar { margin-left: auto; margin-right: auto; }
 }
 
 .filter-card-title {
@@ -591,7 +591,7 @@ input[type="date"]:focus {
 
 .table-scroll table {
   width: 100%;
-  min-width: 1000px;   /* sum of 9 colgroup widths — keeps layout intact */
+  min-width: 895px;   /* optimized 10-column layout — prevents horizontal overflow */
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
@@ -1269,7 +1269,7 @@ a.claim-link:hover { background: var(--primary); color: #fff; }
   .report-header-title h1 { font-size: 18px; }
   .filter-grid { grid-template-columns: repeat(2, 1fr); gap: 12px 10px; }
   .filter-date-row { grid-column: 1 / -1; }
-  .filter-card, .table-card, .summary-card { margin-left: 12px; margin-right: 12px; }
+  .filter-card, .table-card, .summary-card, .avg-turnaround-bar { margin-left: 12px; margin-right: 12px; }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
   .action-row { gap: 6px; }
   .btn { flex: 1 1 0; min-width: 0; justify-content: center; padding: 10px 4px; font-size: 12px; }
@@ -1343,7 +1343,9 @@ td.billed-amount {
    AVERAGE TURNAROUND BAR
    ===================================================== */
 .avg-turnaround-bar {
-  margin: 0 auto 16px auto;
+  margin: 0 24px 16px 24px;
+  max-width: 1392px;
+  box-sizing: border-box;
   max-width: 1392px;
   background: linear-gradient(90deg, #1E2D5A 0%, #2F6FEB 100%);
   border-radius: var(--radius-md);
@@ -1389,4 +1391,18 @@ th.sortable-col:hover {
   font-size: 13px;
   opacity: 0.9;
   vertical-align: middle;
+}
+.text-center { text-align: center !important; }
+
+@media (min-width: 1464px) {
+  .avg-turnaround-bar {
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+@media (max-width: 768px) {
+  .avg-turnaround-bar {
+    margin-left: 12px !important;
+    margin-right: 12px !important;
+  }
 }

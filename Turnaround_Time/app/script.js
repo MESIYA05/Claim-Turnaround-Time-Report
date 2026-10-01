@@ -1069,7 +1069,7 @@ function renderTable(data) {
   void tbody.offsetWidth;
 
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="9">No data</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10">No data</td></tr>`;
     renderSummary([]);
     updateAvgTurnaroundBar([]);
     return;
@@ -1106,6 +1106,8 @@ function renderTable(data) {
     const hospital  = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
     const patientInfo = getClaimPatientInfo(c);
     const patient   = patientInfo ? patientInfo.label : "-";
+    const payerObj  = getClaimPayer(c);
+    const payer     = payerObj ? payerObj.label : (c.Payer?.zc_display_value || c.Payer_Name || "-");
 
     const lines = getGroupedByItemLines(c);
 
@@ -1117,19 +1119,20 @@ function renderTable(data) {
     const groupClass = groupIdx % 2 === 0 ? "grp-a" : "grp-b";
 
     const claimCellsHtml = `
-      <td rowspan="${rowCount}" class="claim-cell">${claimId}</td>
+      <td rowspan="${rowCount}" class="claim-cell text-center">${claimId}</td>
       <td rowspan="${rowCount}" class="claim-cell">${doctor}</td>
       <td rowspan="${rowCount}" class="claim-cell">${hospital}</td>
       <td rowspan="${rowCount}" class="claim-cell">${patient}</td>
-      <td rowspan="${rowCount}" class="claim-cell">${claimDate}</td>
+      <td rowspan="${rowCount}" class="claim-cell">${payer}</td>
+      <td rowspan="${rowCount}" class="claim-cell text-center">${claimDate}</td>
     `;
 
     if (!lines.length) {
       html += `
         <tr class="${groupClass} group-first">
           ${claimCellsHtml}
-          <td class="no-lines" colspan="3">No line items</td>
-          <td class="item-ppdays">${turnaroundDisplay}</td>
+          <td class="no-lines text-center" colspan="3">No line items</td>
+          <td class="item-ppdays text-center">${turnaroundDisplay}</td>
         </tr>
       `;
       return;
@@ -1153,20 +1156,20 @@ function renderTable(data) {
       const span    = itemSpans[idx];
 
       const itemNoCell = span
-        ? `<td rowspan="${span}" class="item-no">${itemNo}</td>`
+        ? `<td rowspan="${span}" class="item-no text-center">${itemNo}</td>`
         : "";
 
       // Payment Turnaround (Days) carries rowspan over the whole claim
       const turnaroundCell = idx === 0
-        ? `<td rowspan="${rowCount}" class="item-ppdays">${turnaroundDisplay}</td>`
+        ? `<td rowspan="${rowCount}" class="item-ppdays text-center">${turnaroundDisplay}</td>`
         : "";
 
       html += `
         <tr class="${groupClass} ${idx === 0 ? "group-first" : ""}">
           ${idx === 0 ? claimCellsHtml : ""}
           ${itemNoCell}
-          <td class="item-dos">${dos}</td>
-          <td class="item-paydate">${payDate}</td>
+          <td class="item-dos text-center">${dos}</td>
+          <td class="item-paydate text-center">${payDate}</td>
           ${turnaroundCell}
         </tr>
       `;
@@ -1177,8 +1180,11 @@ function renderTable(data) {
   tbody.classList.add("fade-in");
   renderSummary(data);
   updateAvgTurnaroundBar(data);
-}
 
+  // Reset horizontal scroll position so the table is never scrolled out of view
+  const scrollEl = document.querySelector(".table-scroll");
+  if (scrollEl) scrollEl.scrollLeft = 0;
+}
 /* ---- Average Payment Turnaround Days Bar ---- */
 function updateAvgTurnaroundBar(data) {
   const bar = document.getElementById("avg-turnaround-bar");
@@ -1516,9 +1522,11 @@ function getExportRows() {
     const patient   = getPatientDisplayWithDOB(c);
     const turnaroundDisplay = formatTurnaroundDays(calcPaymentTurnaroundDays(c));
 
+    const payerObj  = getClaimPayer(c);
+    const payer     = payerObj ? payerObj.label : (c.Payer?.zc_display_value || c.Payer_Name || "-");
     const baseRow   = {
       "Claim ID": claimId, "Doctor": doctor, "Hospital": hospital,
-      "Patient": patient, "Claim Date": claimDate
+      "Patient": patient, "Payer": payer, "Claim Date": claimDate
     };
 
     const lines = getGroupedByItemLines(c);
@@ -1611,7 +1619,7 @@ function exportExcel() {
 
   const HEADER_ROW = aoa.length;
   aoa.push([
-    "Claim ID", "Doctor", "Hospital", "Patient", "Claim Date",
+    "Claim ID", "Doctor", "Hospital", "Patient", "Payer", "Claim Date",
     "Item No", "Date of Service", "Payment Date", "Payment Turnaround (Days)"
   ]);
 
@@ -1704,14 +1712,14 @@ FILTERED_DATA.forEach(c => {
   setStyle(0, 0, { font: { bold: true, sz: 14, color: { rgb: XLSX_BRAND.navy } }, alignment: { horizontal: "center" } });
   for (let r = 1; r <= 4; r++) setStyle(r, 0, { font: { sz: 9, italic: true, color: { rgb: XLSX_BRAND.navyText } } });
 
-  for (let c = 0; c <= 8; c++) setStyle(HEADER_ROW, c, headerStyle); // 9 columns (0-8)
+  for (let c = 0; c <= 9; c++) setStyle(HEADER_ROW, c, headerStyle); // 10 columns (0-9)
 
   for (let r = DATA_START_ROW; r <= DATA_END_ROW; r++) {
     const isAlt = (r - DATA_START_ROW) % 2 === 1;
     const isGroupStart = groupBoundaryRows.includes(r);
-    for (let c = 0; c <= 8; c++) { // 9 columns (0-8)
+    for (let c = 0; c <= 9; c++) { // 10 columns (0-9)
       let style = isAlt ? { ...dataCellStyle, fill: altRowFill } : dataCellStyle;
-      if (c === 8) style = { ...style, alignment: { horizontal: "center" } }; // Process Payment Days centered
+      if (c === 0 || c === 5 || c === 6 || c === 7 || c === 8 || c === 9) style = { ...style, alignment: { horizontal: "center" } };
       if (isGroupStart) {
         style = { ...style, border: { ...style.border, top: { style: "medium", color: { rgb: XLSX_BRAND.navy } } } };
       }
@@ -1811,6 +1819,8 @@ function buildPdfBody() {
     const doctor    = c.Doctor?.zc_display_value   || c.Doctor_Name   || "-";
     const hospital  = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
     const patient   = (getClaimPatientInfo(c) || {}).label || "-";
+    const payerObj  = getClaimPayer(c);
+    const payer     = payerObj ? payerObj.label : (c.Payer?.zc_display_value || c.Payer_Name || "-");
 
     const lines = getGroupedByItemLines(c);
     PDF_GROUP_STARTS.push(body.length);
@@ -1818,7 +1828,7 @@ function buildPdfBody() {
     const turnaroundDisplay = formatTurnaroundDays(calcPaymentTurnaroundDays(c));
 
     if (!lines.length) {
-      body.push([claimId, doctor, hospital, patient, claimDate, "-", "-", "-", turnaroundDisplay]);
+      body.push([claimId, doctor, hospital, patient, payer, claimDate, "-", "-", "-", turnaroundDisplay]);
       return;
     }
 
@@ -1841,6 +1851,7 @@ function buildPdfBody() {
         idx === 0 ? doctor    : "",
         idx === 0 ? hospital  : "",
         idx === 0 ? patient   : "",
+        idx === 0 ? payer     : "",
         idx === 0 ? claimDate : ""
       ];
 
@@ -2060,7 +2071,7 @@ async function exportPDF() {
     margin: { top: HEADER_HEIGHT, left: margin, right: margin, bottom: FOOTER_RESERVED },
     theme: "grid",
     head: [[
-      "Claim ID", "Doctor", "Hospital", "Patient", "Claim Date",
+      "Claim ID", "Doctor", "Hospital", "Patient", "Payer", "Claim Date",
       "Item No", "Date of Service", "Payment Date", "Payment Turnaround (Days)"
     ]],
     body: buildPdfBody(),
@@ -2100,16 +2111,16 @@ async function exportPDF() {
     },
     tableWidth: pageW - margin * 2,
     columnStyles: {
-      // 9 columns filling the full usable width (pageW - margin * 2 ≈ 761.89pt)
-      0: { cellWidth: 72, halign: "center" },    // Claim ID
-      1: { cellWidth: 95, halign: "left" },      // Doctor
-      2: { cellWidth: 115, halign: "left" },     // Hospital
-      3: { cellWidth: 115, halign: "left" },     // Patient
-      4: { cellWidth: 75, halign: "center" },    // Claim Date
-      5: { cellWidth: 55, halign: "center" },    // Item No
-      6: { cellWidth: 80, halign: "center" },    // Date of Service
-      7: { cellWidth: 75, halign: "center" },    // Payment Date
-      8: { cellWidth: 80, halign: "center" }     // Process Payment Days
+      0: { cellWidth: 50, halign: "center" },   // Claim ID
+      1: { cellWidth: 78, halign: "left" },     // Doctor
+      2: { cellWidth: 92, halign: "left" },     // Hospital
+      3: { cellWidth: 85, halign: "left" },     // Patient
+      4: { cellWidth: 75, halign: "left" },     // Payer
+      5: { cellWidth: 62, halign: "center" },   // Claim Date
+      6: { cellWidth: 42, halign: "center" },   // Item No
+      7: { cellWidth: 68, halign: "center" },   // Date of Service
+      8: { cellWidth: 68, halign: "center" },   // Payment Date
+      9: { cellWidth: 72, halign: "center" }    // Payment Turnaround (Days)
     },
     didDrawPage: () => {
       drawHeader(doc, pageW, margin, headerInfo);

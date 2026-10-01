@@ -139,27 +139,29 @@
       <div class="table-scroll">
         <table>
           <colgroup>
-            <col style="width:95px">   <!-- Claim ID -->
-            <col style="width:130px">  <!-- Doctor -->
-            <col style="width:150px">  <!-- Hospital -->
-            <col style="width:140px">  <!-- Patient -->
-            <col style="width:95px">   <!-- Claim Lodgement Date -->
-            <col style="width:80px">   <!-- Item No -->
-            <col style="width:100px">  <!-- Date of Service -->
-            <col style="width:100px">  <!-- Payment Date -->
-            <col style="width:120px">  <!-- Payment Turnaround (Days) -->
+            <col style="width:80px">   <!-- Claim ID -->
+            <col style="width:110px">  <!-- Doctor -->
+            <col style="width:120px">  <!-- Hospital -->
+            <col style="width:100px">  <!-- Patient -->
+            <col style="width:90px">   <!-- Payer -->
+            <col style="width:80px">   <!-- Claim Lodgement Date -->
+            <col style="width:60px">   <!-- Item No -->
+            <col style="width:80px">   <!-- Date of Service -->
+            <col style="width:80px">   <!-- Payment Date -->
+            <col style="width:95px">   <!-- Payment Turnaround (Days) -->
           </colgroup>
           <thead>
             <tr>
-              <th>Claim ID</th>
+              <th style="text-align:center">Claim ID</th>
               <th>Doctor</th>
               <th>Hospital</th>
               <th>Patient</th>
-              <th>Claim Lodgement Date</th>
-              <th>Item No</th>
-              <th>Date of Service</th>
-              <th>Payment Date</th>
-              <th class="sortable-col" id="th-turnaround" onclick="toggleTurnaroundSort()" title="Click to sort by turnaround time">
+              <th>Payer</th>
+              <th style="text-align:center">Claim Lodgement Date</th>
+              <th style="text-align:center">Item No</th>
+              <th style="text-align:center">Date of Service</th>
+              <th style="text-align:center">Payment Date</th>
+              <th class="sortable-col" id="th-turnaround" onclick="toggleTurnaroundSort()" title="Click to sort by turnaround time" style="text-align:center">
                 Payment Turnaround (Days)
                 <span class="sort-icon" id="sort-icon-turnaround">&#8597;</span>
               </th>
@@ -167,7 +169,7 @@
           </thead>
           <tbody id="report-body">
             <tr>
-              <td colspan="9">No data</td>
+              <td colspan="10">No data</td>
             </tr>
           </tbody>
         </table>
