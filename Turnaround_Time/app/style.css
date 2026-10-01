@@ -1303,3 +1303,90 @@ td.billed-amount {
 
 .status-approved  { background: #E2F5EE; color: #146F52; } /* green */
 .status-cancelled { background: #FBE7E6; color: #A3322F; } /* red */
+
+/* =====================================================
+   EXPORT BUTTONS (separate PDF / Excel)
+   ===================================================== */
+.btn-pdf {
+  background: #C0392B;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.18s;
+}
+.btn-pdf:hover { background: #a93226; }
+
+.btn-excel {
+  background: #1D6F42;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.18s;
+}
+.btn-excel:hover { background: #155734; }
+
+/* =====================================================
+   AVERAGE TURNAROUND BAR
+   ===================================================== */
+.avg-turnaround-bar {
+  margin: 0 auto 16px auto;
+  max-width: 1392px;
+  background: linear-gradient(90deg, #1E2D5A 0%, #2F6FEB 100%);
+  border-radius: var(--radius-md);
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(47, 111, 235, 0.25);
+}
+.avg-turnaround-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.avg-turnaround-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.3px;
+}
+.avg-turnaround-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================
+   SORTABLE COLUMN HEADER
+   ===================================================== */
+th.sortable-col {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+th.sortable-col:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+.sort-icon {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 13px;
+  opacity: 0.9;
+  vertical-align: middle;
+}

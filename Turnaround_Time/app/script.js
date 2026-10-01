@@ -9,6 +9,7 @@ let SELECTED_ITEM_NUMBERS = [];
 let PDF_GROUP_STARTS = [];
 let ITEM_TYPE_MAP = {};
 let ITEM_DESC_MAP = {};
+let TURNAROUND_SORT_DIR = null;
 
 let ITEM_SEARCH_TIMER = null;
 let CHECKED_ITEM_NUMBERS = new Set();   // tracks selections across remote re-searches
@@ -225,6 +226,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   initSearchableSelect("f-location", "All Hospitals");
   initSearchableSelect("f-doctor",   "All Doctors");
   initSearchableSelect("f-patient",  "All Patients");
+  initSearchableSelect("f-payer",    "All Payers");
 
   try {
     if (typeof ZOHO === "undefined") {
@@ -261,9 +263,13 @@ const [items, doctors, hospitals, mappings, patients] = await Promise.all([
     /* 4) Filters + table */
     populateDoctors(doctors);
     populateHospitals(hospitals);
-    // populatePayers(claims);
+    populatePayers(claims);
     populatePatients(patients);
-    // populateItemNumbers(claims);
+    // Apply initial Fully Paid filter
+    FILTERED_DATA = ALL_CLAIMS.filter(c => {
+      const s = String(c.Status?.zc_display_value || c.Status || "").trim().toLowerCase();
+      return s === "fully paid";
+    });
     renderTable(FILTERED_DATA);
 
     console.timeEnd("total load");
@@ -944,10 +950,17 @@ function runReport() {
   const doctorId   = getSearchableValue("f-doctor");
   const hospitalId = getSearchableValue("f-location");
   const patientId  = getSearchableValue("f-patient");
+  const payerId    = getSearchableValue("f-payer");
   const fromDate   = document.getElementById("f-from").value;
   const toDate     = document.getElementById("f-to").value;
 
   let filtered = [...ALL_CLAIMS];
+
+  // Condition: Only show Fully Paid claims (invisible filter - no UI status filter/column)
+  filtered = filtered.filter(c => {
+    const s = String(c.Status?.zc_display_value || c.Status || "").trim().toLowerCase();
+    return s === "fully paid";
+  });
 
   if (doctorId) {
     filtered = filtered.filter(c => c.Doctor && String(c.Doctor.ID) === String(doctorId));
@@ -957,6 +970,12 @@ function runReport() {
   }
   if (patientId) {
     filtered = filtered.filter(c => c.Patient && String(c.Patient.ID) === String(patientId));
+  }
+  if (payerId) {
+    filtered = filtered.filter(c => {
+      const p = getClaimPayer(c);
+      return p && String(p.value) === String(payerId);
+    });
   }
   if (fromDate) {
     const from = parseZohoDate(fromDate);
@@ -973,12 +992,12 @@ function runReport() {
   }
 
   FILTERED_DATA = filtered;
+  TURNAROUND_SORT_DIR = null;
+  const sortIcon = document.getElementById("sort-icon-turnaround");
+  if (sortIcon) sortIcon.innerHTML = "&#8597;";
   renderTable(filtered);
 }
 
-// Priority: 1) Claim's own "Payer" lookup field
-//           2) Patient's Payer (via PATIENT_PAYER_MAP)
-//           3) Payer_Name plain text field
 function getClaimPayer(c) {
   if (c.Payer && c.Payer.ID) {
     return { value: c.Payer.ID, label: c.Payer.zc_display_value || c.Payer_Name || "-" };
@@ -1005,6 +1024,26 @@ function getPatientDisplayWithDOB(c) {
    =================================================== */
 
 
+/* ---- Payment Turnaround Days helper (Claim Lodgement Date -> Payment Date) ---- */
+function calcPaymentTurnaroundDays(c) {
+  const lodgement = parseZohoDate(c.Claim_Date || c.Lodged_Date);
+  let payDateRaw = c.Payment_Date || c.payment_date;
+  if (!payDateRaw) {
+    const lines = getClaimLines(c);
+    if (lines.length && lines[0].Payment_Date) payDateRaw = lines[0].Payment_Date;
+  }
+  const payDate = parseZohoDate(payDateRaw);
+  if (!lodgement || !payDate || isNaN(lodgement.getTime()) || isNaN(payDate.getTime())) return null;
+  const diff = Math.round((payDate - lodgement) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return null;
+  return diff;
+}
+
+function formatTurnaroundDays(days) {
+  if (days === null || days === undefined) return "-";
+  return days === 1 ? "1 Day" : `${days} Days`;
+}
+
 /* ---- Process Payment Days helper ---- */
 function calcProcessPaymentDays(l) {
   const dos = parseZohoDate(l.Date_of_Service);
@@ -1029,83 +1068,152 @@ function renderTable(data) {
   tbody.classList.remove("fade-in");
   void tbody.offsetWidth;
 
-if (!data.length) {
-  tbody.innerHTML = `<tr><td colspan="9">No data</td></tr>`;
-  renderSummary([]);
-  return;
-}
-  let html = "";
-
-data.forEach((c, groupIdx) => {
-  const claimId   = c.Claim_ID || c.ID || "-";
-  const claimDate = formatClaimDate(c);
-  const doctor    = c.Doctor?.zc_display_value   || c.Doctor_Name   || "-";
-  const hospital  = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
-  const patientInfo = getClaimPatientInfo(c);
-  const patient   = patientInfo ? patientInfo.label : "-";
-
-  const lines = getGroupedByItemLines(c);
-
-  const rowCount = Math.max(lines.length, 1);
-  const groupClass = groupIdx % 2 === 0 ? "grp-a" : "grp-b";
-
-  const claimCellsHtml = `
-    <td rowspan="${rowCount}" class="claim-cell">${claimId}</td>
-    <td rowspan="${rowCount}" class="claim-cell">${doctor}</td>
-    <td rowspan="${rowCount}" class="claim-cell">${hospital}</td>
-    <td rowspan="${rowCount}" class="claim-cell">${patient}</td>
-    <td rowspan="${rowCount}" class="claim-cell">${claimDate}</td>
-  `;
-
-  if (!lines.length) {
-    html += `
-      <tr class="${groupClass} group-first">
-        ${claimCellsHtml}
-        <td class="no-lines" colspan="4">No line items</td>
-      </tr>
-    `;
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="9">No data</td></tr>`;
+    renderSummary([]);
+    updateAvgTurnaroundBar([]);
     return;
   }
 
-  // Precompute item-number group spans for rowspan on Item No
-  let i = 0;
-  const itemSpans = new Array(lines.length).fill(null);
-  while (i < lines.length) {
-    const currentItem = getLineItemNumber(lines[i]);
-    let span = 1;
-    while (i + span < lines.length && getLineItemNumber(lines[i + span]) === currentItem) span++;
-    itemSpans[i] = span;
-    i += span;
+  // Sort by turnaround days if sort is active
+  let sortedData = [...data];
+  if (TURNAROUND_SORT_DIR === "asc") {
+    sortedData.sort((a, b) => {
+      const da = calcPaymentTurnaroundDays(a);
+      const db = calcPaymentTurnaroundDays(b);
+      if (da === null && db === null) return 0;
+      if (da === null) return 1;
+      if (db === null) return -1;
+      return da - db;
+    });
+  } else if (TURNAROUND_SORT_DIR === "desc") {
+    sortedData.sort((a, b) => {
+      const da = calcPaymentTurnaroundDays(a);
+      const db = calcPaymentTurnaroundDays(b);
+      if (da === null && db === null) return 0;
+      if (da === null) return 1;
+      if (db === null) return -1;
+      return db - da;
+    });
   }
 
-  lines.forEach((l, idx) => {
-    const itemNo  = getLineItemNumber(l);
-    const dos     = getLineDateOfService(l);
-    const payDate = getLinePaymentDate(l);
-    const ppDays  = calcProcessPaymentDays(l);
-    const span    = itemSpans[idx];
+  let html = "";
 
-    // Item No uses rowspan over consecutive same-item rows
-    const itemNoCell = span
-      ? `<td rowspan="${span}" class="item-no">${itemNo}</td>`
-      : "";
+  sortedData.forEach((c, groupIdx) => {
+    const claimId   = c.Claim_ID || c.ID || "-";
+    const claimDate = formatClaimDate(c);
+    const doctor    = c.Doctor?.zc_display_value   || c.Doctor_Name   || "-";
+    const hospital  = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
+    const patientInfo = getClaimPatientInfo(c);
+    const patient   = patientInfo ? patientInfo.label : "-";
 
-    html += `
-      <tr class="${groupClass} ${idx === 0 ? "group-first" : ""}">
-        ${idx === 0 ? claimCellsHtml : ""}
-        ${itemNoCell}
-        <td class="item-dos">${dos}</td>
-        <td class="item-paydate">${payDate}</td>
-        <td class="item-ppdays">${ppDays}</td>
-      </tr>
+    const lines = getGroupedByItemLines(c);
+
+    // Payment Turnaround Days: calculated from Claim Lodgement Date -> Payment Date
+    const turnaroundDays = calcPaymentTurnaroundDays(c);
+    const turnaroundDisplay = formatTurnaroundDays(turnaroundDays);
+
+    const rowCount = Math.max(lines.length, 1);
+    const groupClass = groupIdx % 2 === 0 ? "grp-a" : "grp-b";
+
+    const claimCellsHtml = `
+      <td rowspan="${rowCount}" class="claim-cell">${claimId}</td>
+      <td rowspan="${rowCount}" class="claim-cell">${doctor}</td>
+      <td rowspan="${rowCount}" class="claim-cell">${hospital}</td>
+      <td rowspan="${rowCount}" class="claim-cell">${patient}</td>
+      <td rowspan="${rowCount}" class="claim-cell">${claimDate}</td>
     `;
+
+    if (!lines.length) {
+      html += `
+        <tr class="${groupClass} group-first">
+          ${claimCellsHtml}
+          <td class="no-lines" colspan="3">No line items</td>
+          <td class="item-ppdays">${turnaroundDisplay}</td>
+        </tr>
+      `;
+      return;
+    }
+
+    // Precompute item-number group spans for rowspan on Item No
+    let i = 0;
+    const itemSpans = new Array(lines.length).fill(null);
+    while (i < lines.length) {
+      const currentItem = getLineItemNumber(lines[i]);
+      let span = 1;
+      while (i + span < lines.length && getLineItemNumber(lines[i + span]) === currentItem) span++;
+      itemSpans[i] = span;
+      i += span;
+    }
+
+    lines.forEach((l, idx) => {
+      const itemNo  = getLineItemNumber(l);
+      const dos     = getLineDateOfService(l);
+      const payDate = getLinePaymentDate(l);
+      const span    = itemSpans[idx];
+
+      const itemNoCell = span
+        ? `<td rowspan="${span}" class="item-no">${itemNo}</td>`
+        : "";
+
+      // Payment Turnaround (Days) carries rowspan over the whole claim
+      const turnaroundCell = idx === 0
+        ? `<td rowspan="${rowCount}" class="item-ppdays">${turnaroundDisplay}</td>`
+        : "";
+
+      html += `
+        <tr class="${groupClass} ${idx === 0 ? "group-first" : ""}">
+          ${idx === 0 ? claimCellsHtml : ""}
+          ${itemNoCell}
+          <td class="item-dos">${dos}</td>
+          <td class="item-paydate">${payDate}</td>
+          ${turnaroundCell}
+        </tr>
+      `;
+    });
   });
-});
+
   tbody.innerHTML = html;
   tbody.classList.add("fade-in");
   renderSummary(data);
+  updateAvgTurnaroundBar(data);
 }
 
+/* ---- Average Payment Turnaround Days Bar ---- */
+function updateAvgTurnaroundBar(data) {
+  const bar = document.getElementById("avg-turnaround-bar");
+  const valEl = document.getElementById("avg-turnaround-value");
+  if (!bar || !valEl) return;
+
+  const validDays = data
+    .map(c => calcPaymentTurnaroundDays(c))
+    .filter(v => v !== null && !isNaN(v));
+
+  if (!validDays.length) {
+    bar.style.display = "none";
+    return;
+  }
+
+  const avg = Math.round(validDays.reduce((a, b) => a + b, 0) / validDays.length);
+  valEl.textContent = avg === 1 ? "1 Day" : `${avg} Days`;
+  bar.style.display = "";
+}
+
+/* ---- Sorting by Payment Turnaround (Days) ---- */
+function toggleTurnaroundSort() {
+  if (TURNAROUND_SORT_DIR === null || TURNAROUND_SORT_DIR === "desc") {
+    TURNAROUND_SORT_DIR = "asc";
+  } else {
+    TURNAROUND_SORT_DIR = "desc";
+  }
+
+  const icon = document.getElementById("sort-icon-turnaround");
+  if (icon) {
+    icon.innerHTML = TURNAROUND_SORT_DIR === "asc" ? "&#8593;" : "&#8595;";
+  }
+
+  renderTable(FILTERED_DATA);
+}
 
 // Sums Amount_Charged for each item number within ONE claim (mirrors getClaimItemCounts)
 function getClaimItemAmounts(c) {
@@ -1406,6 +1514,8 @@ function getExportRows() {
     const doctor    = c.Doctor?.zc_display_value   || c.Doctor_Name   || "-";
     const hospital  = c.Hospital?.zc_display_value || c.Hospital_Name || "-";
     const patient   = getPatientDisplayWithDOB(c);
+    const turnaroundDisplay = formatTurnaroundDays(calcPaymentTurnaroundDays(c));
+
     const baseRow   = {
       "Claim ID": claimId, "Doctor": doctor, "Hospital": hospital,
       "Patient": patient, "Claim Date": claimDate
@@ -1417,7 +1527,7 @@ function getExportRows() {
       rows.push({
         ...baseRow,
         "Item No": "-", "Date of Service": "-",
-        "Payment Date": "-", "Process Payment Days": "-"
+        "Payment Date": "-", "Payment Turnaround (Days)": turnaroundDisplay
       });
       return;
     }
@@ -1438,10 +1548,10 @@ function getExportRows() {
 
       rows.push({
         ...baseRow,
-        "Item No":              isFirstOfGroup ? itemNo : "",
-        "Date of Service":      getLineDateOfService(l),
-        "Payment Date":         getLinePaymentDate(l),
-        "Process Payment Days": calcProcessPaymentDays(l)
+        "Item No":                   isFirstOfGroup ? itemNo : "",
+        "Date of Service":           getLineDateOfService(l),
+        "Payment Date":              getLinePaymentDate(l),
+        "Payment Turnaround (Days)": idx === 0 ? turnaroundDisplay : ""
       });
     });
   });
@@ -1502,7 +1612,7 @@ function exportExcel() {
   const HEADER_ROW = aoa.length;
   aoa.push([
     "Claim ID", "Doctor", "Hospital", "Patient", "Claim Date",
-    "Item No", "Date of Service", "Payment Date", "Process Payment Days"
+    "Item No", "Date of Service", "Payment Date", "Payment Turnaround (Days)"
   ]);
 
 
@@ -1705,12 +1815,13 @@ function buildPdfBody() {
     const lines = getGroupedByItemLines(c);
     PDF_GROUP_STARTS.push(body.length);
 
+    const turnaroundDisplay = formatTurnaroundDays(calcPaymentTurnaroundDays(c));
+
     if (!lines.length) {
-      body.push([claimId, doctor, hospital, patient, claimDate, "-", "-", "-", "-"]);
+      body.push([claimId, doctor, hospital, patient, claimDate, "-", "-", "-", turnaroundDisplay]);
       return;
     }
 
-    // Precompute item-number group spans (same logic as renderTable)
     let i = 0;
     const itemSpans = new Array(lines.length).fill(null);
     while (i < lines.length) {
@@ -1734,14 +1845,12 @@ function buildPdfBody() {
       ];
 
       if (span) {
-        // First row of an item group â€” carry rowSpan via cell objects
         row.push({ content: itemNo, rowSpan: span });
       }
-      // When span is null, push nothing â€” jsPDF-AutoTable requires spanned rows to omit the cell
 
       row.push(getLineDateOfService(l));
       row.push(getLinePaymentDate(l));
-      row.push(String(calcProcessPaymentDays(l)));
+      row.push(idx === 0 ? turnaroundDisplay : "");
 
       body.push(row);
     });
@@ -1749,9 +1858,6 @@ function buildPdfBody() {
 
   return body;
 }
-
-
-// resetFilters() â€” patient reset now goes through the multiselect path
 function resetMultiSelect(id, allLabel) {
   const wrapper = document.getElementById(id);
   if (!wrapper) return;
@@ -1761,7 +1867,7 @@ function resetMultiSelect(id, allLabel) {
 }
 
 function resetFilters() {
-  ["f-doctor", "f-location", "f-patient"].forEach(id => {
+  ["f-doctor", "f-location", "f-patient", "f-payer"].forEach(id => {
     const wrapper = document.getElementById(id);
     if (!wrapper) return;
     wrapper.dataset.value = "";
@@ -1773,7 +1879,15 @@ function resetFilters() {
 
   updateLocationOptionsForDoctor("");
 
-  FILTERED_DATA = ALL_CLAIMS;
+  TURNAROUND_SORT_DIR = null;
+  const sortIcon = document.getElementById("sort-icon-turnaround");
+  if (sortIcon) sortIcon.innerHTML = "&#8597;";
+
+  // Reset to only Fully Paid claims
+  FILTERED_DATA = ALL_CLAIMS.filter(c => {
+    const s = String(c.Status?.zc_display_value || c.Status || "").trim().toLowerCase();
+    return s === "fully paid";
+  });
   renderTable(FILTERED_DATA);
 }
 /* ===================================================
@@ -1899,47 +2013,7 @@ async function fetchItemsForClaims(claims) {
   return items;
 }
 
-/* ===================================================
-   EXPORT ICON MENU (PDF / Excel)
-   =================================================== */
-document.addEventListener("DOMContentLoaded", () => {
-  const menu       = document.getElementById("export-menu");
-  const trigger    = document.getElementById("export-icon-btn");
-  const pdfOption  = document.getElementById("export-pdf-opt");
-  const excelOption = document.getElementById("export-excel-opt");
-
-  if (!menu || !trigger) return;
-
-  trigger.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const willOpen = !menu.classList.contains("open");
-    closeAllSearchableSelects();
-    closeAllMultiSelects();
-    menu.classList.toggle("open", willOpen);
-  });
-
-  menu.querySelector(".export-dropdown").addEventListener("click", (e) => e.stopPropagation());
-
-  pdfOption.addEventListener("click", async () => {
-    menu.classList.remove("open");
-    pdfOption.classList.add("loading");
-    try {
-      await exportPDF();
-    } finally {
-      pdfOption.classList.remove("loading");
-    }
-  });
-
-  excelOption.addEventListener("click", () => {
-    menu.classList.remove("open");
-    excelOption.classList.add("loading");
-    try {
-      exportExcel();
-    } finally {
-      excelOption.classList.remove("loading");
-    }
-  });
-});
+/* Export PDF & Excel are now direct buttons with onclick */
 
 /* ===================================================
    EXPORT PDF (fixed)
@@ -1987,7 +2061,7 @@ async function exportPDF() {
     theme: "grid",
     head: [[
       "Claim ID", "Doctor", "Hospital", "Patient", "Claim Date",
-      "Item No", "Date of Service", "Payment Date", "Process Payment Days"
+      "Item No", "Date of Service", "Payment Date", "Payment Turnaround (Days)"
     ]],
     body: buildPdfBody(),
 
