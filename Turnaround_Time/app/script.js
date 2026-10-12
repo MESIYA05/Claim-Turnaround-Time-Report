@@ -1138,26 +1138,10 @@ function renderTable(data) {
       return;
     }
 
-    // Precompute item-number group spans for rowspan on Item No
-    let i = 0;
-    const itemSpans = new Array(lines.length).fill(null);
-    while (i < lines.length) {
-      const currentItem = getLineItemNumber(lines[i]);
-      let span = 1;
-      while (i + span < lines.length && getLineItemNumber(lines[i + span]) === currentItem) span++;
-      itemSpans[i] = span;
-      i += span;
-    }
-
     lines.forEach((l, idx) => {
       const itemNo  = getLineItemNumber(l);
       const dos     = getLineDateOfService(l);
       const payDate = getLinePaymentDate(l);
-      const span    = itemSpans[idx];
-
-      const itemNoCell = span
-        ? `<td rowspan="${span}" class="item-no text-center">${itemNo}</td>`
-        : "";
 
       // Payment Turnaround (Days) carries rowspan over the whole claim
       const turnaroundCell = idx === 0
@@ -1167,7 +1151,7 @@ function renderTable(data) {
       html += `
         <tr class="${groupClass} ${idx === 0 ? "group-first" : ""}">
           ${idx === 0 ? claimCellsHtml : ""}
-          ${itemNoCell}
+          <td class="item-no text-center">${itemNo}</td>
           <td class="item-dos text-center">${dos}</td>
           <td class="item-paydate text-center">${payDate}</td>
           ${turnaroundCell}
@@ -1540,23 +1524,12 @@ function getExportRows() {
       return;
     }
 
-    let i = 0;
-    const itemSpans = new Array(lines.length).fill(null);
-    while (i < lines.length) {
-      const currentItem = getLineItemNumber(lines[i]);
-      let span = 1;
-      while (i + span < lines.length && getLineItemNumber(lines[i + span]) === currentItem) span++;
-      itemSpans[i] = span;
-      i += span;
-    }
-
     lines.forEach((l, idx) => {
       const itemNo = getLineItemNumber(l);
-      const isFirstOfGroup = itemSpans[idx] !== null;
 
       rows.push({
         ...baseRow,
-        "Item No":                   isFirstOfGroup ? itemNo : "",
+        "Item No":                   itemNo,
         "Date of Service":           getLineDateOfService(l),
         "Payment Date":              getLinePaymentDate(l),
         "Payment Turnaround (Days)": idx === 0 ? turnaroundDisplay : ""
@@ -1642,19 +1615,8 @@ FILTERED_DATA.forEach(c => {
     return;
   }
 
-  let i = 0;
-  const itemSpans = new Array(lines.length).fill(null);
-  while (i < lines.length) {
-    const currentItem = getLineItemNumber(lines[i]);
-    let span = 1;
-    while (i + span < lines.length && getLineItemNumber(lines[i + span]) === currentItem) span++;
-    itemSpans[i] = span;
-    i += span;
-  }
-
   lines.forEach((l, idx) => {
     const itemNo = getLineItemNumber(l);
-    const isFirstOfGroup = itemSpans[idx] !== null;
 
     aoa.push([
       idx === 0 ? claimId   : "",
@@ -1662,7 +1624,7 @@ FILTERED_DATA.forEach(c => {
       idx === 0 ? hospital  : "",
       idx === 0 ? patient   : "",
       idx === 0 ? claimDate : "",
-      isFirstOfGroup ? itemNo : "",
+      itemNo,
       getLineDateOfService(l),
       getLinePaymentDate(l),
       calcProcessPaymentDays(l)
@@ -1832,19 +1794,8 @@ function buildPdfBody() {
       return;
     }
 
-    let i = 0;
-    const itemSpans = new Array(lines.length).fill(null);
-    while (i < lines.length) {
-      const currentItem = getLineItemNumber(lines[i]);
-      let span = 1;
-      while (i + span < lines.length && getLineItemNumber(lines[i + span]) === currentItem) span++;
-      itemSpans[i] = span;
-      i += span;
-    }
-
     lines.forEach((l, idx) => {
       const itemNo = getLineItemNumber(l);
-      const span = itemSpans[idx];
 
       const row = [
         idx === 0 ? claimId   : "",
@@ -1852,16 +1803,12 @@ function buildPdfBody() {
         idx === 0 ? hospital  : "",
         idx === 0 ? patient   : "",
         idx === 0 ? payer     : "",
-        idx === 0 ? claimDate : ""
+        idx === 0 ? claimDate : "",
+        itemNo,
+        getLineDateOfService(l),
+        getLinePaymentDate(l),
+        idx === 0 ? turnaroundDisplay : ""
       ];
-
-      if (span) {
-        row.push({ content: itemNo, rowSpan: span });
-      }
-
-      row.push(getLineDateOfService(l));
-      row.push(getLinePaymentDate(l));
-      row.push(idx === 0 ? turnaroundDisplay : "");
 
       body.push(row);
     });
@@ -2065,6 +2012,21 @@ async function exportPDF() {
   const HEADER_HEIGHT = 168;
   const FOOTER_RESERVED = 110;
 
+  const availableTableWidth = pageW - margin * 2;
+  const colWeights = [
+    55,  // 0: Claim ID (~55pt)
+    86,  // 1: Doctor (~86pt)
+    101, // 2: Hospital (~101pt)
+    94,  // 3: Patient (~94pt)
+    83,  // 4: Payer (~83pt)
+    68,  // 5: Claim Date (~68pt)
+    46,  // 6: Item No (~46pt)
+    75,  // 7: Date of Service (~75pt)
+    75,  // 8: Payment Date (~75pt)
+    79   // 9: Payment Turnaround (Days) (~79pt)
+  ];
+  const weightSum = colWeights.reduce((a, b) => a + b, 0);
+
   /* ---------------- MAIN CLAIMS TABLE ---------------- */
   doc.autoTable({
     startY: HEADER_HEIGHT,
@@ -2109,18 +2071,18 @@ async function exportPDF() {
       cellPadding: 5,
       valign: "middle"
     },
-    tableWidth: pageW - margin * 2,
+    tableWidth: availableTableWidth,
     columnStyles: {
-      0: { cellWidth: 50, halign: "center" },   // Claim ID
-      1: { cellWidth: 78, halign: "left" },     // Doctor
-      2: { cellWidth: 92, halign: "left" },     // Hospital
-      3: { cellWidth: 85, halign: "left" },     // Patient
-      4: { cellWidth: 75, halign: "left" },     // Payer
-      5: { cellWidth: 62, halign: "center" },   // Claim Date
-      6: { cellWidth: 42, halign: "center" },   // Item No
-      7: { cellWidth: 68, halign: "center" },   // Date of Service
-      8: { cellWidth: 68, halign: "center" },   // Payment Date
-      9: { cellWidth: 72, halign: "center" }    // Payment Turnaround (Days)
+      0: { cellWidth: (colWeights[0] / weightSum) * availableTableWidth, halign: "center" },   // Claim ID
+      1: { cellWidth: (colWeights[1] / weightSum) * availableTableWidth, halign: "left" },     // Doctor
+      2: { cellWidth: (colWeights[2] / weightSum) * availableTableWidth, halign: "left" },     // Hospital
+      3: { cellWidth: (colWeights[3] / weightSum) * availableTableWidth, halign: "left" },     // Patient
+      4: { cellWidth: (colWeights[4] / weightSum) * availableTableWidth, halign: "left" },     // Payer
+      5: { cellWidth: (colWeights[5] / weightSum) * availableTableWidth, halign: "center" },   // Claim Date
+      6: { cellWidth: (colWeights[6] / weightSum) * availableTableWidth, halign: "center" },   // Item No
+      7: { cellWidth: (colWeights[7] / weightSum) * availableTableWidth, halign: "center" },   // Date of Service
+      8: { cellWidth: (colWeights[8] / weightSum) * availableTableWidth, halign: "center" },   // Payment Date
+      9: { cellWidth: (colWeights[9] / weightSum) * availableTableWidth, halign: "center" }    // Payment Turnaround (Days)
     },
     didDrawPage: () => {
       drawHeader(doc, pageW, margin, headerInfo);
