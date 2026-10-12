@@ -22,32 +22,54 @@
 
 <!-- LOADING OVERLAY -->
 <div id="fxLoader" class="fx-loader is-active" role="status" aria-live="polite">
-  <div class="fx-grid"></div>
+  <!-- Ambient glowing background auras -->
+  <div class="loader-ambient">
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+  </div>
 
-  <div class="fx-panel">
-    <span class="fx-corner tl"></span><span class="fx-corner tr"></span>
-    <span class="fx-corner bl"></span><span class="fx-corner br"></span>
-    <span class="fx-scan"></span>
+  <div class="loader-card">
+    <!-- Center Hero Animation: Concentric Pulses, Glowing Conic Halo & Logo Core -->
+    <div class="loader-hero">
+      <div class="pulse-wave pulse-wave--1"></div>
+      <div class="pulse-wave pulse-wave--2"></div>
+      <div class="pulse-wave pulse-wave--3"></div>
 
-    <div class="fx-orb">
-      <span class="fx-ring fx-ring--1"></span>
-      <span class="fx-ring fx-ring--2"></span>
-      <span class="fx-ring fx-ring--3"></span>
-      <span class="fx-orbit"><i></i></span>
-      <span class="fx-core fx-core--logo"><img
+      <div class="spinner-track-outer"></div>
+      <div class="spinner-halo"></div>
+      <div class="spinner-counter-arc"></div>
+
+      <div class="loader-logo-core">
+        <img
           src="https://creatorapp.zohopublic.com.au/file//medielves/claims-management//All_Images/31559000000025010/Logo/image-download/PFxHZm68ZwuMKfkZz7yNOH7BZEes8UQN5ETOHD0bVY8Njqf0b9Zw5ZTe2XUK0CONRVfdmbQ9wteQdDnbWNCN4kVaeRZQhFrE6Tp5?filepath=/1774517256590556_Logo_design_with_green_leaf_accent.png"
-          alt="Medi Elves"></span>
+          alt="Medi Elves">
+      </div>
     </div>
 
-    <h3 class="fx-title">
-      Loading claims data
-      <span class="fx-dots"><i></i><i></i><i></i></span>
+    <!-- Title & Animated Dots -->
+    <h3 class="loader-title">
+      Loading Claims Data
+      <span class="loader-dots">
+        <i></i><i></i><i></i>
+      </span>
     </h3>
 
-    <p class="fx-status"><span id="fxStatus">Initializing secure connection</span></p>
+    <!-- Dynamic Status Badge -->
+    <div class="loader-status-badge">
+      <span class="status-live-dot"></span>
+      <span id="fxStatus">Initializing secure connection</span>
+    </div>
 
-    <div class="fx-bar"><span id="fxBarFill"></span></div>
-    <div class="fx-meta"><span>DATA SYNC</span><span id="fxPct">0%</span></div>
+    <!-- Progress Track & Percentage -->
+    <div class="loader-progress-box">
+      <div class="loader-bar-bg">
+        <span id="fxBarFill" class="loader-bar-fill"></span>
+      </div>
+      <div class="loader-meta">
+        <span class="loader-sync-label">Syncing records</span>
+        <span id="fxPct" class="loader-pct-val">0%</span>
+      </div>
+    </div>
   </div>
 </div>
   <div class="container">
